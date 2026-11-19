@@ -404,16 +404,16 @@ function render() {
             const boil = Math.sin(now / 80) * (cellSize * 0.06);
             const r = (cellSize * 0.38 + boil) * Math.min(1, lifeRatio * 1.4);
 
-            ctx.fillStyle = `rgba(57, 255, 20, ${0.45 * lifeRatio})`;
+            ctx.fillStyle = `rgba(57, 255, 20, ${0.6 * lifeRatio})`;
             ctx.beginPath();
             ctx.arc(px, py, r, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.strokeStyle = `rgba(168, 85, 247, ${0.8 * lifeRatio})`;
+            ctx.strokeStyle = `rgba(168, 85, 247, ${0.9 * lifeRatio})`;
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            ctx.font = `${Math.floor(cellSize * 0.80)}px sans-serif`;
+            ctx.font = `${Math.floor(cellSize * 0.95)}px sans-serif`;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.globalAlpha = Math.min(1, lifeRatio * 1.5);
@@ -432,7 +432,7 @@ function render() {
             ctx.save();
             ctx.translate(px, py);
             ctx.rotate(p.angle || 0);
-            ctx.font = `${Math.floor(cellSize * 0.72)}px sans-serif`;
+            ctx.font = `${Math.floor(cellSize * 0.85)}px sans-serif`;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText("🧪", 0, 0);

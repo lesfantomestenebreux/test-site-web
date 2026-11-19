@@ -39,7 +39,9 @@ function startGameCycle() {
             let nextX = m.x + m.dirX;
             let nextY = m.y + m.dirY;
 
-            if (currentLevel.map[nextY] && currentLevel.map[nextY][nextX] === 1) {
+            // Rebondit sur tout obstacle : mur (1), tombe (2), troll (3) ou bord de carte
+            const nextTile = currentLevel.map[nextY] && currentLevel.map[nextY][nextX];
+            if (nextTile === undefined || nextTile !== 0) {
                 m.dirX = -m.dirX;
                 m.dirY = -m.dirY;
                 nextX = m.x + m.dirX;
