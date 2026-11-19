@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accueil - Les Fantômes Ténébreux</title>
+    <meta name="description" content="Association Les Fantômes Ténébreux au Chambon-Feugerolles. Spécialistes de l'animation d'Halloween, nous créons des parcours immersifs et des scénographies terrifiantes pour petits et grands.">
+    <meta property="og:title" content="Les Fantômes Ténébreux - Animations Halloween">
+    <meta property="og:description" content="Rejoignez l'association la plus terrifiante du Chambon-Feugerolles !">
+    <meta property="og:image" content="https://les-fantomes-tenebreux.netlify.app/logo2.png">
+    <meta property="og:url" content="https://les-fantomes-tenebreux.netlify.app">
+    <meta property="og:type" content="website">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "url": "https://les-fantomes-tenebreux.netlify.app",
+      "logo": "https://les-fantomes-tenebreux.netlify.app/logo2.png",
+      "name": "Les Fantômes Ténébreux"
+    }
+    </script>
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="logo2.png">
+    <link rel="apple-touch-icon" href="logo2.png">
+</head>
+
+<body class="d-flex flex-column min-vh-100">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="/" style="color: #ff6600; font-family: 'Creepster', cursive;">
+            <img src="logo2.png" alt="Logo" style="max-width: 40px;" class="me-3">
+            <span class="d-none d-sm-inline">LES FANTÔMES TÉNÉBREUX</span>
+        </a>
+        <div class="d-flex align-items-center ms-auto order-lg-last">
+            <button id="theme-toggle" class="btn btn-outline-warning btn-sm me-2">🌓 Mode Clair</button>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto me-lg-3">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false" style="color: #ff6600;"><font dir="auto" style="vertical-align: inherit;"><font dir="auto" style="vertical-align: inherit;">Nous Soutenir</font></font></a>
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item" href="/soutenir"><font dir="auto" style="vertical-align: inherit;"><font dir="auto" style="vertical-align: inherit;">Faire un don financier</font></font></a>
+                        <a class="dropdown-item" href="https://forms.gle/yteDJCCFaxfCuUiA8"><font dir="auto" style="vertical-align: inherit;"><font dir="auto" style="vertical-align: inherit;">Faire un don de matériel (ou une location gratuite)</font></font></a>
+                        <a class="dropdown-item" href="https://forms.gle/eyxXACekgcx5JAuy6"><font dir="auto" style="vertical-align: inherit;"><font dir="auto" style="vertical-align: inherit;">Faire un don en nature (service et autre)</font></font></a>
+                    </div>
+                </li> 
+                <li class="nav-item"><a class="nav-link" href="/historique">Notre Histoire</a></li>
+                <li class="nav-item"><a class="nav-link" href="/adhesion">Devenir Membre</a></li>
+                <li class="nav-item"><a class="nav-link" href="/actualites">Actualités</a></li>
+                <li class="nav-item"><a class="nav-link" href="/Apropos">À Propos</a></li>
+                <li class="nav-item"><a class="nav-link" href="mailto:lesfantomestenebreux@gmail.com">Contact</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+<p style="margin-top: 30px;"></p> <!-- Pour compenser la navbar fixe -->
+<div id="mini-game-section" class="text-center mt-5 mb-5">
+    <h2 style="color: #ff6600; font-family: 'Creepster', cursive;" class="mb-3">Attrape le Fantôme !</h2>
+    
+    <div class="d-flex justify-content-center gap-4 mb-4">
+        <h4 style="color: #adafae;">Score: <span id="score" style="color: #ff6600;">0</span></h4>
+        <h4 style="color: #adafae;">Temps: <span id="time" style="color: #ff6600;">30</span>s</h4>
+    </div>
+
+    <button id="start-btn" class="btn btn-warning btn-lg fw-bold mb-4" style="background-color: #ff6600; border: none; color: black;">Démarrer la traque</button>
+
+    <div id="game-container" class="position-relative border border-warning rounded shadow-lg mx-auto" style="width: 100%; max-width: 600px; height: 400px; background-color: #111111; overflow: hidden; display: none;">
+        <div id="ghost" class="position-absolute" style="font-size: 3rem; cursor: pointer; display: none; transition: top 0.2s, left 0.2s; user-select: none;">
+            👻
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const toggleBtn = document.getElementById('theme-toggle');
+    const body = document.body;
+
+    function updateThemeUI(isDark) {
+        // On cible TOUTES les cartes de la page
+        const allCards = document.querySelectorAll('.card');
+
+        if (isDark) {
+            // MODE SOMBRE
+            body.style.backgroundColor = "#000000";
+            body.style.color = "#adafae";
+            
+            allCards.forEach(card => {
+                card.style.backgroundColor = "#111111";
+                card.style.borderColor = "#ff6600";
+            });
+
+            toggleBtn.innerHTML = "☀️ Mode Clair";
+            toggleBtn.className = "btn btn-outline-warning btn-sm mt-1";
+        } else {
+            // MODE CLAIR
+            body.style.backgroundColor = "#ADAFAE";
+            body.style.color = "#212529";
+            
+            allCards.forEach(card => {
+                card.style.backgroundColor = "#f8f9fa";
+                card.style.borderColor = "#dee2e6";
+            });
+
+            toggleBtn.innerHTML = "🌙 Mode Sombre";
+            toggleBtn.className = "btn btn-outline-dark btn-sm mt-1";
+        }
+
+        // Ajustement automatique de tous les textes pour la lisibilité
+        const allTexts = document.querySelectorAll('p, h2, h3, .text-dark, .text-light');
+        allTexts.forEach(el => {
+            // On ne touche pas aux titres orange (#ff6600)
+            if (!el.classList.contains('text-orange') && el.style.color !== 'rgb(255, 102, 0)') {
+                el.style.setProperty('color', isDark ? '#adafae' : '#212529', 'important');
+            }
+        });
+    }
+
+    toggleBtn.addEventListener('click', () => {
+        const isCurrentlyDark = localStorage.getItem('theme') !== 'light';
+        const nextTheme = isCurrentlyDark ? 'light' : 'dark';
+        localStorage.setItem('theme', nextTheme);
+        updateThemeUI(nextTheme === 'dark');
+    });
+
+    // Chargement initial basé sur la mémoire du navigateur
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    updateThemeUI(savedTheme === 'dark');
+</script>
+<script>
+const startBtn = document.getElementById('start-btn');
+const gameContainer = document.getElementById('game-container');
+const ghost = document.getElementById('ghost');
+const scoreDisplay = document.getElementById('score');
+const timeDisplay = document.getElementById('time');
+
+let score = 0;
+let timeLeft = 30;
+let gameInterval;
+let ghostTimeout;
+
+function moveGhost() {
+    // Récupère les dimensions du conteneur pour garder le fantôme à l'intérieur
+    const containerRect = gameContainer.getBoundingClientRect();
+    const ghostSize = 50; 
+    
+    const maxX = containerRect.width - ghostSize;
+    const maxY = containerRect.height - ghostSize;
+
+    // Génère des coordonnées aléatoires
+    const randomX = Math.floor(Math.random() * maxX);
+    const randomY = Math.floor(Math.random() * maxY);
+
+    ghost.style.left = randomX + 'px';
+    ghost.style.top = randomY + 'px';
+    ghost.style.display = 'block';
+
+    // Fait disparaître le fantôme s'il n'est pas cliqué à temps
+    clearTimeout(ghostTimeout);
+    ghostTimeout = setTimeout(() => {
+        ghost.style.display = 'none';
+        if (timeLeft > 0) setTimeout(moveGhost, Math.random() * 500 + 200);
+    }, Math.random() * 800 + 600); // Reste visible entre 0.6s et 1.4s
+}
+
+// Action au clic sur le fantôme
+ghost.addEventListener('click', () => {
+    score++;
+    scoreDisplay.textContent = score;
+    ghost.style.display = 'none'; 
+    clearTimeout(ghostTimeout);
+    
+    // Petit effet visuel sur la bordure du conteneur
+    gameContainer.style.borderColor = "#ff0000";
+    setTimeout(() => gameContainer.style.borderColor = "#ff6600", 200);
+
+    // Fait réapparaître un nouveau fantôme rapidement
+    if (timeLeft > 0) setTimeout(moveGhost, Math.random() * 400 + 200);
+});
+
+// Action au clic sur le bouton "Démarrer"
+startBtn.addEventListener('click', () => {
+    // Réinitialisation des variables
+    score = 0;
+    timeLeft = 30;
+    scoreDisplay.textContent = score;
+    timeDisplay.textContent = timeLeft;
+    
+    startBtn.style.display = 'none';
+    gameContainer.style.display = 'block';
+    
+    moveGhost();
+
+    // Décompte du chronomètre
+    gameInterval = setInterval(() => {
+        timeLeft--;
+        timeDisplay.textContent = timeLeft;
+        
+        if (timeLeft <= 0) {
+            clearInterval(gameInterval);
+            clearTimeout(ghostTimeout);
+            ghost.style.display = 'none';
+            startBtn.style.display = 'block';
+            startBtn.textContent = 'Rejouer';
+            alert('Temps écoulé ! Tu as attrapé ' + score + ' fantômes 👻');
+        }
+    }, 1000);
+});
+</script>
+</body>
+</html>

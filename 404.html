@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Égaré dans le noir</title>
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Styles spécifiques à la page 404 pour l'effet visuel */
+        .error-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: radial-gradient(circle, #1a1a1a 0%, #000000 100%);
+            text-align: center;
+            padding: 20px;
+        }
+
+        .error-code {
+            font-family: 'Creepster', cursive;
+            font-size: 10rem;
+            color: #ff6600;
+            text-shadow: 0 0 20px rgba(255, 102, 0, 0.6);
+            line-height: 1;
+            animation: flicker 2s infinite;
+        }
+
+        .ghost-icon {
+            font-size: 5rem;
+            margin-bottom: 20px;
+            display: inline-block;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes flicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+            20%, 22%, 24%, 55% { opacity: 0.4; }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+    </style>
+</head>
+<body class="bg-dark text-light">
+
+    <div class="error-container">
+        <div class="ghost-icon">
+            <a href="/fantomes" style="text-decoration: none; color: inherit;">👻</a>
+        </div>
+        <h1 class="error-code">404</h1>
+        <h2 class="mb-4" style="font-family: 'Creepster', cursive; color: #ff6600;">Oups... Vous avez traversé le miroir !</h2>
+        <p class="lead text-dark mb-5">Cette page a disparu dans les brumes du Chambon-Feugerolles ou n'a jamais existé.</p>
+        
+        <div class="d-flex gap-3">
+            <a href="/" class="btn btn-warning btn-lg fw-bold px-3">Retourner a l'accueil</a>
+            <a href="/labyrinthe" class="btn btn-outline-dark btn-lg px-3">jouer au labyrinthe</a>
+            <a href="/fantomes" class="btn btn-warning btn-lg fw-bold px-3">attraper les fantômes</a>
+        </div>
+    </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const secretGhost = document.getElementById('easter-egg-ghost');
+
+        function manageGhostApparition() {
+            // Configuration : 90% de chance d'apparaître toutes les minutes
+            const appearanceChance = 0.9; 
+            
+            setInterval(() => {
+                // Si le fantôme n'est pas déjà visible
+                if (secretGhost.style.display === 'none' || secretGhost.style.right === '-180px') {
+                    if (Math.random() < appearanceChance) {
+                        
+                        // Choisit une hauteur aléatoire entre 10% et 50% de l'écran pour éviter de déborder en bas
+                        const randomTop = Math.floor(Math.random() * 40) + 10;
+                        secretGhost.style.top = randomTop + '%';
+                        
+                        // Fait apparaître et glisser le fantôme vers la gauche pour être visible au 1/4
+                        secretGhost.style.display = 'block';
+                        setTimeout(() => {
+                            secretGhost.style.right = '-140px'; // Ajusté pour laisser dépasser un petit bout
+                        }, 50);
+
+                        // Le fantôme repart se cacher tout seul au bout de 8 secondes s'il n'est pas cliqué
+                        setTimeout(() => {
+                            secretGhost.style.right = '-180px';
+                            setTimeout(() => { secretGhost.style.display = 'none'; }, 500);
+                        }, 8000);
+                    }
+                }
+            }, 2000); // Vérification toutes les 2 secondes
+        }
+
+        // Effet de survol : il sort un peu plus de sa cachette si on passe la souris dessus
+        secretGhost.addEventListener('mouseenter', () => {
+            secretGhost.style.right = '-60px';
+            secretGhost.style.transform = 'rotate(-25deg) scale(1.05)';
+        });
+        
+        secretGhost.addEventListener('mouseleave', () => {
+            secretGhost.style.right = '-140px';
+            secretGhost.style.transform = 'rotate(-15deg) scale(1)';
+        });
+
+        // Lancement du cycle
+        manageGhostApparition();
+    });
+</script>
+</body>
+</html>

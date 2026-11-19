@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actualités - Les Fantômes Ténébreux</title>
+    <meta name="description" content="toute l'actu de l'association Les Fantômes Ténébreux.">
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="logo2.png">
+</head>
+<body class="d-flex flex-column min-vh-100">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="/" style="color: #ff6600; font-family: 'Creepster', cursive;">
+            <img src="logo2.png" alt="Logo" style="max-width: 40px;" class="me-3">
+            <span class="d-none d-sm-inline">LES FANTÔMES TÉNÉBREUX</span>
+        </a>
+        <div class="d-flex align-items-center ms-auto order-lg-last">
+            <button id="theme-toggle" class="btn btn-outline-warning btn-sm me-2">🌓 Mode Clair</button>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto me-lg-3">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false" style="color: #ff6600;"><font dir="auto" style="vertical-align: inherit;"><font dir="auto" style="vertical-align: inherit;">Nous Soutenir</font></font></a>
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item" href="/soutenir"><font dir="auto" style="vertical-align: inherit;"><font dir="auto" style="vertical-align: inherit;">Faire un don financier</font></font></a>
+                        <a class="dropdown-item" href="https://forms.gle/yteDJCCFaxfCuUiA8"><font dir="auto" style="vertical-align: inherit;"><font dir="auto" style="vertical-align: inherit;">Faire un don de matériel (ou une location gratuite)</font></font></a>
+                        <a class="dropdown-item" href="https://forms.gle/eyxXACekgcx5JAuy6"><font dir="auto" style="vertical-align: inherit;"><font dir="auto" style="vertical-align: inherit;">Faire un don en nature (service et autre)</font></font></a>
+                    </div>
+                </li> 
+                <li class="nav-item"><a class="nav-link" href="/historique">Notre Histoire</a></li>
+                <li class="nav-item"><a class="nav-link" href="/adhesion">Devenir Membre</a></li>
+                <li class="nav-item"><a class="nav-link active" href="/actualites">Actualités</a></li>
+                <li class="nav-item"><a class="nav-link" href="/Apropos">À Propos</a></li>
+                <li class="nav-item"><a class="nav-link" href="mailto:lesfantomestenebreux@gmail.com" ">Contact</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+<div class="container" style="margin-top: 100px; margin-bottom: 60px;">
+    <h1 class="text-center mb-5" style="color: #ff6600; font-family: 'Creepster', cursive;">Actualités Ténébreuses</h1>
+    
+    <div class="row g-4" id="conteneur-cartes">
+        <div class="text-center w-100" id="message-chargement">
+            <p>Invocation des esprits en cours...</p>
+        </div>
+    </div>
+
+    <!-- Bouton pour charger les 6 actualités suivantes -->
+    <div class="text-center mt-5" id="zone-bouton-charger" style="display: none;">
+        <button id="btn-charger-plus" class="btn btn-warning px-4 py-2">
+            Afficher plus d'actualités 📜
+        </button>
+    </div>
+</div>
+<div id="conteneur-popups"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+<script>
+    // 1. Lien CSV Google Sheets avec paramètre anti-cache
+    const urlBase = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQGikufHS1QLZNUFt0wQHbvrkhiDgz7IhsVDXzWIFsI4hWEpqZ_aP_XSEQU3LyeIiYgdTqQjUjjlwoW/pub?output=csv";
+    const lienCSV = urlBase + "&_t=" + new Date().getTime();
+
+    // 2. Dictionnaire des couleurs de badges
+    const couleursBadges = {
+        "Mise à jour": "bg-info",
+        "Officiel": "bg-success",
+        "Adhésion": "bg-primary",
+        "Information": "bg-secondary",
+        "Événement": "bg-danger"
+    };
+
+    // 3. Variables de pagination
+    let toutesLesActualites = [];
+    let indexCourant = 0;
+    const TAILLE_LOT = 6; // Nombre d'actualités par fournée
+
+    // 4. Lecture du fichier via PapaParse
+    Papa.parse(lienCSV, {
+        download: true,
+        header: true,
+        skipEmptyLines: 'greedy',
+        complete: function(resultats) {
+            // Filtrage des lignes valides possédant un titre
+            toutesLesActualites = resultats.data.filter(actu => actu.titre && actu.titre.trim() !== "");
+            toutesLesActualites.reverse(); // Le plus récent en premier
+
+            // On masque le texte de chargement
+            const msgChargement = document.getElementById('message-chargement');
+            if (msgChargement) msgChargement.style.display = 'none';
+
+            // Affichage de la première fournée (6 articles)
+            afficherProchainLot();
+
+            // Gestion de l'affichage du bouton
+            const zoneBouton = document.getElementById('zone-bouton-charger');
+            if (toutesLesActualites.length > TAILLE_LOT) {
+                zoneBouton.style.display = 'block';
+            }
+        }
+    });
+
+    // 5. Injection par lot de 6
+    function afficherProchainLot() {
+        const conteneurCartes = document.getElementById('conteneur-cartes');
+        const conteneurPopups = document.getElementById('conteneur-popups');
+
+        const fin = Math.min(indexCourant + TAILLE_LOT, toutesLesActualites.length);
+        const lotAffiches = toutesLesActualites.slice(indexCourant, fin);
+
+        let htmlCartes = "";
+        let htmlPopups = "";
+
+        lotAffiches.forEach((actu, i) => {
+            const indexGlobal = indexCourant + i;
+            const idPopup = "popupActu" + indexGlobal;
+            const badgeNom = actu.badge ? actu.badge.trim() : "";
+            const couleurBadge = couleursBadges[badgeNom] || "bg-dark";
+
+            // --- CARTE ---
+            htmlCartes += `
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 transition-theme">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge ${couleurBadge}" style="color: #ffffff !important;">${badgeNom}</span>
+                            <p class="small mb-0">${actu.date || ''}</p>
+                        </div>
+                        <h3 class="card-title h5" style="color: #ff6600;">${actu.titre}</h3>
+                        <p class="card-text">${actu.description_courte || ''}</p>
+                    </div>
+                    <div class="card-footer bg-transparent border-top-0">
+                        <a class="btn btn-outline-warning btn-sm" data-bs-toggle="offcanvas" href="#${idPopup}" role="button" aria-controls="${idPopup}">
+                            Lire la suite
+                        </a>
+                    </div>
+                </div>
+            </div>`;
+
+            // --- BLOC ORANGE OPTIONNEL ---
+            let htmlBonus = "";
+            if (actu.texte_bonus_optionnel && actu.texte_bonus_optionnel.trim() !== "") {
+                htmlBonus = `
+                <div class="alert mt-3" style="background-color: #ff6600; color: #ffffff !important;" role="alert">
+                    ${actu.texte_bonus_optionnel}
+                </div>`;
+            }
+
+            // --- BOUTONS D'ACTION ---
+            let htmlBoutons = "";
+            if (actu.lien_bouton && actu.texte_bouton && actu.lien_bouton.trim() !== "") {
+                htmlBoutons += `<a href="${actu.lien_bouton}" class="btn btn-warning">${actu.texte_bouton}</a>`;
+            }
+            if (actu.lien_bouton2 && actu.texte_bouton2 && actu.lien_bouton2.trim() !== "") {
+                htmlBoutons += `<a href="${actu.lien_bouton2}" class="btn btn-outline-warning">${actu.texte_bouton2}</a>`;
+            }
+            if (htmlBoutons !== "") {
+                htmlBoutons = `<div class="d-grid gap-2 mt-4">${htmlBoutons}</div>`;
+            }
+
+            // --- POP-UP OFFCANVAS ---
+            htmlPopups += `
+            <div class="offcanvas offcanvas-start card" tabindex="-1" id="${idPopup}" aria-labelledby="${idPopup}Label">
+                <div class="offcanvas-header border-bottom border-warning">
+                    <h5 class="offcanvas-title" id="${idPopup}Label" style="color: #ff6600; font-family: 'Creepster', cursive;">${actu.titre}</h5>
+                    <button type="button" class="btn-close btn-close-dark" data-bs-dismiss="offcanvas" aria-label="Fermer"></button>
+                </div>
+                <div class="offcanvas-body">
+                    <p>${actu.texte_popup1 || ''}</p>
+                    ${actu.texte_popup2 ? `<p>${actu.texte_popup2}</p>` : ''}
+                    ${htmlBonus}
+                    ${htmlBoutons}
+                </div>
+            </div>`;
+        });
+
+        // Ajout au DOM
+        conteneurCartes.insertAdjacentHTML('beforeend', htmlCartes);
+        conteneurPopups.insertAdjacentHTML('beforeend', htmlPopups);
+
+        // Mise à jour de l'index
+        indexCourant = fin;
+
+        // Si tout est affiché, masquer le bouton
+        if (indexCourant >= toutesLesActualites.length) {
+            document.getElementById('zone-bouton-charger').style.display = 'none';
+        }
+
+        // Réapplication immédiate du thème sombre ou clair aux nouvelles cartes créées
+        if (typeof updateThemeUI === "function") {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            updateThemeUI(savedTheme === 'dark');
+        }
+    }
+
+    // 6. Écouteur de clic sur le bouton
+    document.getElementById('btn-charger-plus').addEventListener('click', afficherProchainLot);
+</script>
+<!-- Fin du code l'actualité -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const toggleBtn = document.getElementById('theme-toggle');
+    const body = document.body;
+
+    function updateThemeUI(isDark) {
+        // On cible TOUTES les cartes de la page
+        const allCards = document.querySelectorAll('.card');
+
+        if (isDark) {
+            // MODE SOMBRE
+            body.style.backgroundColor = "#000000";
+            body.style.color = "#adafae";
+            
+            allCards.forEach(card => {
+                card.style.backgroundColor = "#111111";
+                card.style.borderColor = "#ff6600";
+            });
+
+            toggleBtn.innerHTML = "☀️ Mode Clair";
+            toggleBtn.className = "btn btn-outline-warning btn-sm mt-1";
+        } else {
+            // MODE CLAIR
+            body.style.backgroundColor = "#ADAFAE";
+            body.style.color = "#212529";
+            
+            allCards.forEach(card => {
+                card.style.backgroundColor = "#f8f9fa";
+                card.style.borderColor = "#dee2e6";
+            });
+
+            toggleBtn.innerHTML = "🌙 Mode Sombre";
+            toggleBtn.className = "btn btn-outline-dark btn-sm mt-1";
+        }
+
+        // Ajustement automatique de tous les textes pour la lisibilité
+        const allTexts = document.querySelectorAll('p, h2, h3, .text-dark, .text-light');
+        allTexts.forEach(el => {
+            // On ne touche pas aux titres orange (#ff6600)
+            if (!el.classList.contains('text-orange') && el.style.color !== 'rgb(255, 102, 0)') {
+                el.style.setProperty('color', isDark ? '#adafae' : '#212529', 'important');
+            }
+        });
+    }
+
+    toggleBtn.addEventListener('click', () => {
+        const isCurrentlyDark = localStorage.getItem('theme') !== 'light';
+        const nextTheme = isCurrentlyDark ? 'light' : 'dark';
+        localStorage.setItem('theme', nextTheme);
+        updateThemeUI(nextTheme === 'dark');
+    });
+
+    // Chargement initial basé sur la mémoire du navigateur
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    updateThemeUI(savedTheme === 'dark');
+</script>
+<a href="/fantome" id="easter-egg-ghost" style="
+    position: fixed;
+    right: -20px; /* Caché aux 3/4 */
+    top: 60%;
+    font-size: 2.5rem;
+    text-decoration: none;
+    z-index: 2000; /* Passe au-dessus de la navbar et du footer */
+    transform: rotate(-15deg);
+    cursor: pointer;
+    transition: right 0.5s ease, transform 0.3s ease;
+    display: none; /* Masqué par défaut, géré par le script */
+    user-select: none;
+">👻</a>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const secretGhost = document.getElementById('easter-egg-ghost');
+
+        function manageGhostApparition() {
+            // Configuration : 25% de chance d'apparaître toutes les 15 secondes
+            const appearanceChance = 0.25; 
+            
+            setInterval(() => {
+                // Si le fantôme n'est pas déjà visible, on lance le dé
+                if (secretGhost.style.display === 'none' || secretGhost.style.right === '-20px') {
+                    if (Math.random() < appearanceChance) {
+                        
+                        // Choisit une hauteur aléatoire entre 20% et 80% de l'écran pour varier
+                        const randomTop = Math.floor(Math.random() * 60) + 20;
+                        secretGhost.style.top = randomTop + '%';
+                        
+                        // Fait apparaître et glisser le fantôme vers la gauche pour être visible au 3/4
+                        secretGhost.style.display = 'block';
+                        setTimeout(() => {
+                            secretGhost.style.right = '-12px'; // Ajustement pour laisser dépasser les 3/4
+                        }, 50);
+
+                        // Le fantôme repart se cacher tout seul au bout de 15 secondes s'il n'est pas cliqué
+                        setTimeout(() => {
+                            secretGhost.style.right = '-20px';
+                            setTimeout(() => { secretGhost.style.display = 'none'; }, 500);
+                        }, 15000);
+                    }
+                }
+            }, 30000); // Vérification toutes les 30 secondes
+        }
+
+        // Effet de survol sympa : il sort un peu plus de sa cachette si on passe la souris dessus
+        secretGhost.addEventListener('mouseenter', () => {
+            secretGhost.style.right = '0px';
+            secretGhost.style.transform = 'rotate(-25deg) scale(1.1)';
+        });
+        
+        secretGhost.addEventListener('mouseleave', () => {
+            secretGhost.style.right = '-12px';
+            secretGhost.style.transform = 'rotate(-15deg) scale(1)';
+        });
+
+        // Lancement du cycle
+        manageGhostApparition();
+    });
+</script>
+<footer class="navbar navbar-expand-lg bg-dark">
+    <div class="container-fluid justify-content-center">
+    <p style="color: #ff6600 !important; margin:0; padding: 10px 0;"> © <span id="current-year">2027</span> | Association Les Fantômes Ténébreux | Tous droits réservés</p>
+        <script>
+            document.getElementById("current-year").textContent = new Date().getFullYear();
+        </script>
+    </div>
+</footer>
+</body>
+</html>

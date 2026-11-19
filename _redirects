@@ -1,0 +1,21 @@
+# 1. Redirection pour des URLs propres (sans le .html)
+/redirection   /redirection.html  200
+/historique    /historique.html   200
+/adhesion      /adhesion.html     200
+/apropos       /Apropos.html      200
+/Apropos       /Apropos.html      200
+/fantome       /fantome.html      200
+/fantomes      /fantome.html      200
+/fantôme       /fantome.html      200
+/fantômes      /fantome.html      200
+/actualites    /actu.html         200
+/labyrinthe    /labyrinthe.html   200
+/laby          /labyrinthe.html   200
+
+# 2. Gestion de la page d'accueil
+/              /index.html        301
+/soutenir      https://www.monetico-online-asso.com/les-fantomes-tenebeux/donnations    301
+/payement      https://www.monetico-online-asso.com/les-fantomes-tenebreux/adhesion     301
+
+# 3. La règle d'or : Rediriger tout ce qui n'existe pas vers la 404
+/* /404.html          404

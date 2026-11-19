@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://les-fantomes-tenebreux.netlify.app/sitemap.xml

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Le Manoir - Les Fantômes Ténébreux</title>
+    <meta name="description" content="Mini-jeu de labyrinthe des Fantômes Ténébreux. Échappe aux fantômes et aux pièges !">
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="logo2.png">
+    <link rel="apple-touch-icon" href="logo2.png">
+    <style>
+        :root {
+            --bg-color: #0d0f12;
+            --card-bg: #15181e;
+            --accent-orange: #ff6600;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: #d1d5db;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .creepster-font {
+            font-family: 'Creepster', cursive;
+            letter-spacing: 1px;
+        }
+
+        #game-wrapper {
+            position: relative;
+            max-width: 540px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        #canvas-card {
+            background-color: var(--card-bg);
+            border: 2px solid var(--accent-orange);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+            padding: 8px;
+            position: relative;
+            display: inline-block;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 6px;
+            background: #ffffff;
+            cursor: pointer;
+        }
+
+        /* Écran de démarrage & sélection de personnage (devant le jeu) */
+        #start-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(13, 16, 22, 0.94);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+            backdrop-filter: blur(5px);
+            padding: 20px;
+        }
+
+        .avatar-card {
+            border: 2px solid #3a4150;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 14px 22px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .avatar-card:hover {
+            border-color: var(--accent-orange);
+            transform: translateY(-2px);
+        }
+
+        .avatar-card.active {
+            border-color: var(--accent-orange);
+            background: rgba(255, 102, 0, 0.22);
+            box-shadow: 0 0 15px rgba(255, 102, 0, 0.45);
+        }
+
+        /* D-Pad mobile tactile */
+        .dpad-container {
+            display: grid;
+            grid-template-columns: repeat(3, 75px);
+            grid-template-rows: repeat(3, 75px);
+            gap: 9px;
+            justify-content: center;
+            margin-top: 14px;
+        }
+
+        .dpad-btn {
+            background: rgba(255, 102, 0, 0.15);
+            border: 2px solid var(--accent-orange);
+            color: #ffaa44;
+            border-radius: 12px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s ease;
+            touch-action: manipulation;
+        }
+
+        .dpad-btn:active {
+            background: var(--accent-orange);
+            color: #111;
+            transform: scale(0.92);
+        }
+
+        .stat-badge {
+            background: rgba(255, 102, 0, 0.1);
+            border: 1px solid rgba(255, 102, 0, 0.35);
+            border-radius: 8px;
+            padding: 4px 12px;
+            font-weight: 600;
+        }
+
+        /* Overlay Fin de partie */
+        #status-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 12, 16, 0.88);
+            border-radius: 12px;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            backdrop-filter: blur(3px);
+        }
+        #game-wrapper:fullscreen {
+    background-color: #0d0f12;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100vw;
+    height: 100vh;
+    max-width: 100%;
+    margin: 0;
+    padding: 10px;
+}
+#game-wrapper:-webkit-full-screen {
+    background-color: #0d0f12;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100vw;
+    height: 100vh;
+    max-width: 100%;
+    margin: 0;
+    padding: 10px;
+}
+#screamer-box {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #000;
+    z-index: 2147483647; /* Passe impérativement au-dessus de tout */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+#screamer-box.screamer-hidden {
+    display: none !important;
+}
+
+#screamer-img {
+    max-width: 90vw;
+    max-height: 90vh;
+    width: auto;
+    height: auto;
+    object-fit: contain; /* Affiche l'image complète sans la tronquer ni déborder */
+    animation: screamerShake 0.08s infinite alternate, screamerZoom 0.2s ease-out;
+}
+
+@keyframes screamerZoom {
+    0% { transform: scale(0.7); }
+    100% { transform: scale(1.0); } /* S'arrête à la taille réelle sans sur-zoomer */
+}
+
+@keyframes screamerShake {
+    0% { transform: scale(1.0) translate(-8px, -6px); }
+    100% { transform: scale(1.0) translate(8px, 6px); }
+}
+    </style>
+</head>
+
+<body class="d-flex flex-column min-vh-100">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="/" style="color: #ff6600; font-family: 'Creepster', cursive;">
+            <img src="logo2.png" alt="Logo" style="max-width: 40px;" class="me-3" onerror="this.style.display='none'">
+            <span class="d-none d-sm-inline">LES FANTÔMES TÉNÉBREUX</span>
+        </a>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto me-lg-3">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false" style="color: #ff6600;"><font dir="auto" style="vertical-align: inherit;"><font dir="auto" style="vertical-align: inherit;">Nous Soutenir</font></font></a>
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item" href="/soutenir"><font dir="auto" style="vertical-align: inherit;"><font dir="auto" style="vertical-align: inherit;">Faire un don financier</font></font></a>
+                        <a class="dropdown-item" href="https://forms.gle/yteDJCCFaxfCuUiA8"><font dir="auto" style="vertical-align: inherit;"><font dir="auto" style="vertical-align: inherit;">Faire un don de matériel (ou une location gratuite)</font></font></a>
+                        <a class="dropdown-item" href="https://forms.gle/eyxXACekgcx5JAuy6"><font dir="auto" style="vertical-align: inherit;"><font dir="auto" style="vertical-align: inherit;">Faire un don en nature (service et autre)</font></font></a>
+                    </div>
+                </li> 
+                <li class="nav-item"><a class="nav-link" href="/historique">Notre Histoire</a></li>
+                <li class="nav-item"><a class="nav-link" href="/adhesion">Devenir Membre</a></li>
+                <li class="nav-item"><a class="nav-link" href="/actualites">Actualités</a></li>
+                <li class="nav-item"><a class="nav-link" href="/Apropos">À Propos</a></li>
+                <li class="nav-item"><a class="nav-link" href="mailto:lesfantomestenebreux@gmail.com">Contact</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container text-center" style="margin-top: 80px; margin-bottom: 30px;">
+    <h1 id="level-title" class="creepster-font text-warning mb-1" style="color: #ff6600 !important; font-size: 2.2rem;">Manoir</h1>
+    <p id="level-desc" class="text-secondary small mb-3">Guide ton héros jusqu'à la porte 🚪 !</p>
+
+    <!-- Conteneur de jeu (Tout ce qui est ici sera visible en plein écran) -->
+    <div id="game-wrapper">
+        <div class="d-flex justify-content-center align-items-center flex-wrap gap-2 mb-3">
+            <div class="stat-badge text-light">🪙 Pièces : <span id="coin-status" class="text-warning">0 / 0</span></div>
+            <button id="fullscreen-btn" class="btn btn-sm btn-outline-warning" onclick="toggleFullScreen()">⛶ Plein écran</button>
+            <button id="reset-btn" class="btn btn-sm btn-outline-danger">🔄 Recommencer</button>
+            <button id="help-btn" class="btn btn-sm btn-outline-info fw-bold" onclick="window.GuideModule.open(0)" title="Guide du jeu">❓</button>
+        </div>
+
+        <div id="screamer-box" class="screamer-hidden">
+            <img id="screamer-img" src="screamer1.jpg" alt="Screamer">
+            <audio id="screamer-audio" src="screamer.mp3" preload="auto"></audio>
+        </div>
+        <div id="canvas-card">
+            <canvas id="gameCanvas" width="440" height="440"></canvas>
+            
+            <!-- ÉCRAN DE DÉMARRAGE : CHOIX DU PERSONNAGE DEVANT LE JEU -->
+            <div id="start-overlay">
+                <h2 class="creepster-font text-warning mb-2" style="font-size: 2rem;">Choisis ton Héros</h2>
+                <p class="text-dark small mb-4">Sélectionne ton personnage avant d'entrer dans le manoir :</p>
+
+                <div class="d-flex gap-1 mb-4">
+                    <div class="avatar-card text-center active" data-avatar="👩" onclick="setPlayerAvatar('👩')">
+                        <div style="font-size: 1.4rem;">👩</div>
+                    </div>
+                    <div class="avatar-card text-center" data-avatar="👨" onclick="setPlayerAvatar('👨')">
+                        <div style="font-size: 1.4rem; ">👨</div>
+                    </div>
+                    <div class="avatar-card text-center" data-avatar="👩‍🦱" onclick="setPlayerAvatar('👩‍🦱')">
+                        <div style="font-size: 1.4rem;">👩‍🦱</div>
+                    </div>
+                    <div class="avatar-card text-center" data-avatar="👨‍🦱" onclick="setPlayerAvatar('👨‍🦱')">
+                        <div style="font-size: 1.4rem;">👨‍🦱</div>
+                    </div>
+                </div>
+
+                <button id="start-btn" class="btn btn-warning btn-lg fw-bold px-5 shadow" style="background-color: #ff6600; border: none; color: #111;">
+                    Commencer 🚀
+                </button>
+                <button id="continue-btn" class="btn btn-info btn-lg fw-bold mt-2" style="display: none;">Continuer (Niveau 1)</button>
+            </div>
+
+            <!-- Overlay Fin de partie (Victoire / Défaite) -->
+            <div id="status-overlay">
+                <h2 id="overlay-title" class="creepster-font mb-2"></h2>
+                <p id="overlay-msg" class="text-dark mb-3"></p>
+                <div class="d-flex gap-2">
+                    <button id="overlay-btn-replay" class="btn btn-outline-warning fw-bold px-3">Rejouer</button>
+                    <button id="overlay-btn-next" class="btn btn-warning fw-bold px-4" style="display: none;">Niveau Suivant ➡️</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- D-Pad tactile mobile -->
+        <div class="d-block d-md-none mt-3">
+            <div class="dpad-container mx-auto">
+                <div></div>
+                <button class="dpad-btn" data-dir="up">⬆️</button>
+                <div></div>
+                <button class="dpad-btn" data-dir="left">⬅️</button>
+                <button class="dpad-btn" data-dir="down">⬇️</button>
+                <button class="dpad-btn" data-dir="right">➡️</button>
+                <div></div>
+                <div></div>
+                <div></div>
+            </div>
+        </div>
+        <p class="text-muted small mt-2 d-none d-md-block">Contrôles clavier : Flèches directionnelles ou Z, Q, S, D</p>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- 1. Données des niveaux -->
+<script src="levels.js"></script>
+
+<!-- 2. Moteur découpé en 5 modules -->
+<script src="config.js"></script>
+<script src="monsters.js"></script>
+<script src="player.js"></script>
+<script src="render.js"></script>
+<script src="main.js"></script>
+
+<!-- 3. Modules annexes (Guide & Screamer) -->
+<script src="guide.js"></script>
+
+<!-- Overlay Screamer indépendant -->
+<div id="screamer-box" class="screamer-hidden">
+    <img id="screamer-img" alt="Screamer">
+    <audio id="screamer-audio" src="screamer.mp3" preload="auto"></audio>
+</div>
+
+<!-- Script Screamer -->
+<script src="screamer.js"></script>
+</body>
+</html>

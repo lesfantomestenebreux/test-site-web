@@ -1,0 +1,89 @@
+/* Importation des polices Halloween depuis Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Creepster&family=Metal+Mania&display=swap');
+
+:root {
+    --halloween-orange: #ff6600;
+    --halloween-blood: #880000;
+}
+
+/* Titres style Halloween */
+h1, h2, h3, h4, h5, .navbar-brand {
+    font-family: 'Creepster', cursive;
+    color: var(--halloween-orange) !important;
+    letter-spacing: 2px;
+    text-shadow: 3px 3px 4px #000;
+}
+
+/* Texte général plus lisible */
+body {
+    font-family: 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Personnalisation des boutons Bootstrap pour le style "Ghost" */
+.btn-primary {
+    background-color: var(--halloween-orange) !important;
+    border-color: #cc5200 !important;
+    color: #000 !important;
+    font-weight: bold;
+    text-transform: uppercase;
+    transition: 0.3s;
+}
+
+.btn-primary:hover {
+    box-shadow: 0 0 20px var(--halloween-orange);
+    transform: scale(1.05);
+}
+
+/* Style pour les cartes (Documents & Historique) */
+.card {
+    border: 1px solid #333;
+    transition: border 0.3s;
+}
+
+.card:hover {
+    border: 1px solid var(--halloween-orange);
+}
+
+/* Liens de téléchargement */
+.list-group-item {
+    background-color: #111 !important;
+    border-color: #222 !important;
+    color: #fff !important;
+}
+
+.list-group-item a {
+    color: var(--halloween-orange);
+    text-decoration: none;
+}
+
+.list-group-item a:hover {
+    text-decoration: underline;
+}
+
+/* Animation discrète pour le logo ou les titres */
+@keyframes flicker {
+    0% { opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { opacity: 1; }
+}
+
+.logo-halloween {
+    animation: flicker 3s infinite;
+    max-width: 150px;
+}
+
+.accordion-button {
+    font-family: 'Creepster', cursive;
+    color: #ff6600;
+}
+
+/* Supprime le cyan Bootstrap quand l'onglet est ouvert */
+.accordion-button:not(.collapsed) {
+    color: #ff6600;
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.accordion-button:focus {
+    box-shadow: none;
+}
