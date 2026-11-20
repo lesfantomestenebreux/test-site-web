@@ -3,7 +3,7 @@
    ========================================================================== */
 
 function movePlayer(dx, dy) {
-    if (!gameStarted || isGameOver || hasWon || !currentLevel) return;
+    if (!gameStarted || isGameOver || isDying || hasWon || !currentLevel) return;
     const now = Date.now();
 
     const onSlowTile = currentLevel.slowTiles && currentLevel.slowTiles.some(t => t.x === currentLevel.player.x && t.y === currentLevel.player.y);
@@ -311,25 +311,55 @@ function handleTeleport(px, py) {
 }
 
 function triggerGameOver(msg, deathType = 'default') {
-    if (window.ScreamerModule) {
-        window.ScreamerModule.trigger(deathType, 1000);
-    }
+    if (isGameOver || isDying) return;
+    isDying = true;
 
-    isGameOver = true;
-    if (overlayTitle) {
-        overlayTitle.textContent = "💀 Game Over !";
-        overlayTitle.style.color = "#ff4444";
-    }
-    if (overlayMsg) overlayMsg.textContent = msg;
+    // Laisse 220 ms au monstre pour terminer son glissement visuel jusqu'à la case du joueur
+    setTimeout(() => {
+        isDying = false;
+        isGameOver = true;
 
-    if (overlayBtnReplay) {
-        overlayBtnReplay.textContent = (currentLevel && currentLevel.lastCheckpoint) 
-            ? "Reprendre au Checkpoint 🏳️" 
-            : "Réessayer";
-    }
+        // Force l'alignement exact de toutes les entités sur leur case finale
+        if (currentLevel) {
+            const snapList = (arr) => {
+                if (!arr) return;
+                arr.forEach(e => {
+                    e.fromX = e.x;
+                    e.fromY = e.y;
+                    e.stepStartTime = 0;
+                    e.moveStartTime = 0;
+                });
+            };
+            snapList(currentLevel.ghosts);
+            snapList(currentLevel.vampires);
+            snapList(currentLevel.zombies);
+            snapList(currentLevel.spiders);
+            snapList(currentLevel.bats);
+            snapList(currentLevel.miniTrolls);
+            snapList(currentLevel.skulls);
+        }
 
-    if (overlayBtnNext) overlayBtnNext.style.display = "none";
-    if (overlay) overlay.style.display = "flex";
+        render();
+
+        if (window.ScreamerModule) {
+            window.ScreamerModule.trigger(deathType, 1000);
+        }
+
+        if (overlayTitle) {
+            overlayTitle.textContent = "💀 Game Over !";
+            overlayTitle.style.color = "#ff4444";
+        }
+        if (overlayMsg) overlayMsg.textContent = msg;
+
+        if (overlayBtnReplay) {
+            overlayBtnReplay.textContent = (currentLevel && currentLevel.lastCheckpoint) 
+                ? "Reprendre au Checkpoint 🏳️" 
+                : "Réessayer";
+        }
+
+        if (overlayBtnNext) overlayBtnNext.style.display = "none";
+        if (overlay) overlay.style.display = "flex";
+    }, 220);
 }
 
 function triggerVictory() {
@@ -492,6 +522,7 @@ function respawnAtCheckpoint() {
 
     // 5. Relancer la partie
     isGameOver = false;
+    isDying = false;
     hasWon = false;
 
     updateStatsUI();

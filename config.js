@@ -7,6 +7,7 @@ let cameraY = 0;
 let currentLevelIndex = 0;
 let currentLevel = null;
 let isGameOver = false;
+let isDying = false;
 let hasWon = false;
 let gameStarted = false;
 let gameTimer = null;
@@ -242,6 +243,7 @@ function loadLevel(index) {
     if (levelDesc) levelDesc.textContent = currentLevel.desc;
 
     isGameOver = false;
+    isDying = false;
     hasWon = false;
     updateStatsUI();
 

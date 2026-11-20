@@ -57,116 +57,120 @@ function animateLasers(timestamp) {
     lastFrameTime = timestamp;
 
     if (currentLevel && gameStarted && !isGameOver && !hasWon) {
-        updateZombies(now);
-        if (typeof updateSpiders === 'function') updateSpiders(now);
-        updateWitches(now);
-        updateBats(now);
-        if (typeof updateTrollsAndBows === 'function') updateTrollsAndBows(now);
-        if (typeof updateSkullsAndBones === 'function') updateSkullsAndBones(now);
+        if (!isDying) {
+            updateZombies(now);
+            if (typeof updateSpiders === 'function') updateSpiders(now);
+            updateWitches(now);
+            updateBats(now);
+            if (typeof updateTrollsAndBows === 'function') updateTrollsAndBows(now);
+            if (typeof updateSkullsAndBones === 'function') updateSkullsAndBones(now);
 
-        // --- VITESSE DU FAISCEAU LASER CANON ---
-        const laserSpeed = 4;
-        const keptBombs = [];
-        currentLevel.bombs.forEach(b => {
-            b.x += b.dirX * laserSpeed * dt;
-            b.y += b.dirY * laserSpeed * dt;
+            // --- VITESSE DU FAISCEAU LASER CANON ---
+            const laserSpeed = 4;
+            const keptBombs = [];
+            currentLevel.bombs.forEach(b => {
+                b.x += b.dirX * laserSpeed * dt;
+                b.y += b.dirY * laserSpeed * dt;
 
-            const checkX = b.dirX > 0 ? Math.ceil(b.x) : Math.floor(b.x);
-            const checkY = b.dirY > 0 ? Math.ceil(b.y) : Math.floor(b.y);
+                const checkX = b.dirX > 0 ? Math.ceil(b.x) : Math.floor(b.x);
+                const checkY = b.dirY > 0 ? Math.ceil(b.y) : Math.floor(b.y);
 
-           const laserTile = currentLevel.map[checkY] && currentLevel.map[checkY][checkX];
-            if (laserTile === 1 || laserTile === 3) return;
+                const laserTile = currentLevel.map[checkY] && currentLevel.map[checkY][checkX];
+                if (laserTile === 1 || laserTile === 3) return;
 
-            if (Math.hypot(b.x - currentLevel.player.x, b.y - currentLevel.player.y) < 0.55) {
-                triggerGameOver("Zzzap ! Tu as été désintégré par un laser !");
-            }
-            keptBombs.push(b);
-        });
-        currentLevel.bombs = keptBombs;
+                if (Math.hypot(b.x - currentLevel.player.x, b.y - currentLevel.player.y) < 0.55) {
+                    triggerGameOver("Zzzap ! Tu as été désintégré par un laser !");
+                }
+                keptBombs.push(b);
+            });
+            currentLevel.bombs = keptBombs;
 
         // --- VOL ET IMPACTS DES FIOLES DE SORCIÈRE 🧪 ---
-        if (currentLevel.potions) {
-            const potionSpeed = 2.5;
-            const keptPotions = [];
-            const PUDDLE_DURATION_MS = 2500;
+            if (currentLevel.potions) {
+                const potionSpeed = 2.5;
+                const keptPotions = [];
+                const PUDDLE_DURATION_MS = 2500;
 
-            currentLevel.potions.forEach(p => {
-                const prevX = p.x;
-                const prevY = p.y;
+                currentLevel.potions.forEach(p => {
+                    const prevX = p.x;
+                    const prevY = p.y;
 
-                p.x += p.dirX * potionSpeed * dt;
-                p.y += p.dirY * potionSpeed * dt;
-                p.angle = (p.angle || 0) + dt * 10;
+                    p.x += p.dirX * potionSpeed * dt;
+                    p.y += p.dirY * potionSpeed * dt;
+                    p.angle = (p.angle || 0) + dt * 10;
 
-                let hitObstacle = false;
+                    let hitObstacle = false;
+                    
+                    const targetTileX = Math.round(p.x);
+                    const targetTileY = Math.round(p.y);
+                    const potionTile = currentLevel.map[targetTileY] && currentLevel.map[targetTileY][targetTileX];
+                    if (potionTile === 1 || potionTile === 3) {
+                        hitObstacle = true;    
+                    }
 
-                const targetTileX = Math.round(p.x);
-                const targetTileY = Math.round(p.y);
-                const potionTile = currentLevel.map[targetTileY] && currentLevel.map[targetTileY][targetTileX];
-                if (potionTile === 1 || potionTile === 3) {
-                    hitObstacle = true;
-                }
-
-                if (!hitObstacle && currentLevel.bombs.some(b => Math.hypot(b.x - p.x, b.y - p.y) < 0.6)) {
-                    hitObstacle = true;
-                }
-
-                if (!hitObstacle && Math.hypot(p.x - currentLevel.player.x, p.y - currentLevel.player.y) < 0.55) {
-                    hitObstacle = true;
-                    triggerGameOver("Une fiole toxique 🧪 de sorcière t'a frappé de plein fouet !", "witch");
-                }
-
-                if (!hitObstacle) {
-                    const hitZombie = currentLevel.zombies.some(z => Math.hypot(z.x - p.x, z.y - p.y) < 0.6);
-                    const hitVampire = currentLevel.vampires.some(v => v.alive && Math.hypot(v.x - p.x, v.y - p.y) < 0.6);
-                    const hitSpider = currentLevel.spiders && currentLevel.spiders.some(s => Math.hypot(s.x - p.x, s.y - p.y) < 0.6);
-
-                    if (hitZombie || hitVampire || hitSpider) {
+                    if (!hitObstacle && currentLevel.bombs.some(b => Math.hypot(b.x - p.x, b.y - p.y) < 0.6)) {
                         hitObstacle = true;
                     }
-                }
 
-                if (hitObstacle) {
-                    let puddleX = Math.round(prevX);
-                    let puddleY = Math.round(prevY);
-
-                    if (currentLevel.map[puddleY] && currentLevel.map[puddleY][puddleX] === 1) {
-                        puddleX = Math.max(0, Math.min(currentLevel.cols - 1, Math.round(p.x - p.dirX * 0.5)));
-                        puddleY = Math.max(0, Math.min(currentLevel.rows - 1, Math.round(p.y - p.dirY * 0.5)));
+                    if (!hitObstacle && Math.hypot(p.x - currentLevel.player.x, p.y - currentLevel.player.y) < 0.55) {
+                        hitObstacle = true;
+                        triggerGameOver("Une fiole toxique 🧪 de sorcière t'a frappé de plein fouet !", "witch");
                     }
 
-                    if (!currentLevel.acidPuddles) currentLevel.acidPuddles = [];
-                    currentLevel.acidPuddles.push({
-                        x: puddleX,
-                        y: puddleY,
-                        spawnTime: now,
-                        expireTime: now + PUDDLE_DURATION_MS
-                    });
+                    if (!hitObstacle) {
+                        const hitZombie = currentLevel.zombies.some(z => Math.hypot(z.x - p.x, z.y - p.y) < 0.6);
+                        const hitVampire = currentLevel.vampires.some(v => v.alive && Math.hypot(v.x - p.x, v.y - p.y) < 0.6);
+                        const hitSpider = currentLevel.spiders && currentLevel.spiders.some(s => Math.hypot(s.x - p.x, s.y - p.y) < 0.6);
 
-                    currentLevel.potionSplashes.push({ x: puddleX, y: puddleY, startTime: now, duration: 400 });
-
-                    if (currentLevel.player.x === puddleX && currentLevel.player.y === puddleY) {
-                        triggerGameOver("Une flaque toxique 🧪 s'est répandue sous tes pieds !", "witch");
+                        if (hitZombie || hitVampire || hitSpider) {
+                            hitObstacle = true;
+                        }
                     }
-                    return;
+                
+
+                    if (hitObstacle) {
+                        let puddleX = Math.round(prevX);
+                        let puddleY = Math.round(prevY);
+
+                        if (currentLevel.map[puddleY] && currentLevel.map[puddleY][puddleX] === 1) {
+                            puddleX = Math.max(0, Math.min(currentLevel.cols - 1, Math.round(p.x - p.dirX * 0.5)));
+                            puddleY = Math.max(0, Math.min(currentLevel.rows - 1, Math.round(p.y - p.dirY * 0.5)));
+                        }
+
+                        if (!currentLevel.acidPuddles) currentLevel.acidPuddles = [];
+                        currentLevel.acidPuddles.push({
+                            x: puddleX,
+                            y: puddleY,
+                            spawnTime: now,
+                            expireTime: now + PUDDLE_DURATION_MS
+                        });
+
+                        currentLevel.potionSplashes.push({ x: puddleX, y: puddleY, startTime: now, duration: 400 });
+
+                        if (currentLevel.player.x === puddleX && currentLevel.player.y === puddleY) {
+                            triggerGameOver("Une flaque toxique 🧪 s'est répandue sous tes pieds !", "witch");
+                        }
+                        return;
+                    }
+
+                    keptPotions.push(p);
+                });
+                currentLevel.potions = keptPotions;
                 }
 
-                keptPotions.push(p);
-            });
-            currentLevel.potions = keptPotions;
-        }
-
-        // --- GESTION DES FLAQUES D'ACIDE ACTIVES ---
-        if (currentLevel.acidPuddles) {
-            currentLevel.acidPuddles = currentLevel.acidPuddles.filter(p => now < p.expireTime);
-            const onPuddle = currentLevel.acidPuddles.some(p => p.x === currentLevel.player.x && p.y === currentLevel.player.y);
-            if (onPuddle) {
-                triggerGameOver("Aïe ! Tu as marché dans une flaque d'acide toxique 🧪 !", "witch");
+            // --- GESTION DES FLAQUES D'ACIDE ACTIVES ---
+            if (currentLevel.acidPuddles) {
+                currentLevel.acidPuddles = currentLevel.acidPuddles.filter(p => now < p.expireTime);
+                const onPuddle = currentLevel.acidPuddles.some(p => p.x === currentLevel.player.x && p.y === currentLevel.player.y);
+                if (onPuddle) {
+                    triggerGameOver("Aïe ! Tu as marché dans une flaque d'acide toxique 🧪 !", "witch");
+                }
             }
-        }
+        
 
-        if (currentLevel.potionSplashes) {
-            currentLevel.potionSplashes = currentLevel.potionSplashes.filter(sp => now - sp.startTime < sp.duration);
+            if (currentLevel.potionSplashes) {
+                currentLevel.potionSplashes = currentLevel.potionSplashes.filter(sp => now - sp.startTime < sp.duration);
+            }
         }
 
         render();

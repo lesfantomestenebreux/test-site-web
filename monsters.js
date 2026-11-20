@@ -973,7 +973,7 @@ function updateZombies(now) {
     };
 
     currentLevel.zombies.forEach(z => {
-        if (now - z.lastCheck < 500) return;
+        if (now - z.lastCheck < 550) return;
         z.lastCheck = now;
 
         const isPlayerHidden = currentLevel.player.pumpkinPowerTime > 0;
@@ -1138,12 +1138,14 @@ function updateSpiders(now) {
             const nextY = s.y + stepY;
             const nextTile = currentLevel.map[nextY] && currentLevel.map[nextY][nextX];
 
-            if (nextTile === 2 || nextTile === 3) return;
+            // Bloque uniquement sur le Boss Troll (3), escalade les murs (1) et les tombes (2)
+            if (nextTile === 3) return;
             if (nextY >= 0 && nextY < currentLevel.rows && nextX >= 0 && nextX < currentLevel.cols) {
-                const currentIsWall = (currentLevel.map[s.y] && currentLevel.map[s.y][s.x] === 1);
-                const nextIsWall = (currentLevel.map[nextY] && currentLevel.map[nextY][nextX] === 1);
+                const currTile = currentLevel.map[s.y] && currentLevel.map[s.y][s.x];
+                const currentIsObstacle = (currTile === 1 || currTile === 2);
+                const nextIsObstacle = (nextTile === 1 || nextTile === 2);
 
-                const duration = (currentIsWall || nextIsWall) ? 450 : 125;
+                const duration = (currentIsObstacle || nextIsObstacle) ? 450 : 125;
 
                 s.fromX = s.x;
                 s.fromY = s.y;
