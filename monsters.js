@@ -58,14 +58,20 @@ function startGameCycle() {
             }
         });
 
-        // --- D. VAMPIRES (TRAQUEURS AVEC FUITE SOUS AIL & ANTI-STACKING) ---
-        const isFleeing = currentLevel.player.garlicPowerTime > 0;
+        // --- D. VAMPIRES (TRAQUEURS AVEC FUITE SOUS AIL EN LIGNE DE VUE & ANTI-STACKING) ---
+        const hasGarlic = currentLevel.player.garlicPowerTime > 0;
 
         currentLevel.vampires.forEach(v => {
             if (!v.alive) return;
 
             const canSee = hasLineOfSight(v.x, v.y, currentLevel.player.x, currentLevel.player.y);
-            if (canSee) {
+            const isFleeing = hasGarlic && canSee;
+
+            if (hasGarlic) {
+                // Sous l'effet de l'ail : annule la traque et ne fuit que si la ligne de vue est directe
+                v.chasing = false;
+                v.alertTimer = 0;
+            } else if (canSee) {
                 v.chasing = true;
                 v.lastSeenX = currentLevel.player.x;
                 v.lastSeenY = currentLevel.player.y;
@@ -124,7 +130,7 @@ function startGameCycle() {
             }
 
             if (v.x === currentLevel.player.x && v.y === currentLevel.player.y) {
-                if (currentLevel.player.garlicPowerTime > 0) {
+                if (hasGarlic) {
                     v.alive = false;
                 } else {
                     triggerGameOver("Un vampire t'a mordu !", "vampire");
@@ -987,7 +993,7 @@ function updateZombies(now) {
         } else if (z.state === 'chasing') {
             if (now >= z.chaseEndTime || (z.x === z.lastSeenX && z.y === z.lastSeenY)) {
                 z.state = 'returning';
-                z.returnSteps = 5;
+                z.returnSteps = 10;
             }
         }
 
@@ -1096,7 +1102,7 @@ function updateSpiders(now) {
 
         if (s.state === 'investigating' && s.x === s.targetWebX && s.y === s.targetWebY) {
             s.state = 'waiting';
-            s.waitEndTime = now + 2000;
+            s.waitEndTime = now +1200;
         }
 
         if (s.state === 'waiting') {
@@ -1422,6 +1428,29 @@ function updateSkullsAndBones(now) {
                 player.x = nx;
                 player.y = ny;
                 player.moveStartTime = now;
+
+                // Alerte l'araignée la plus proche si le joueur atterrit sur une toile 🕸️
+                const landedOnWeb = currentLevel.slowTiles && currentLevel.slowTiles.some(t => t.x === nx && t.y === ny);
+                if (landedOnWeb && currentLevel.spiders && currentLevel.spiders.length > 0) {
+                    let closestSpider = null;
+                    let minDistance = Infinity;
+
+                    currentLevel.spiders.forEach(sp => {
+                        const dist = Math.hypot(sp.x - nx, sp.y - ny);
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            closestSpider = sp;
+                        }
+                    });
+
+                    if (closestSpider) {
+                        closestSpider.state = 'investigating';
+                        closestSpider.targetWebX = nx;
+                        closestSpider.targetWebY = ny;
+                        closestSpider.targetX = nx;
+                        closestSpider.targetY = ny;
+                    }
+                }
                 return;
             }
         }
