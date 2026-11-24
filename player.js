@@ -46,6 +46,7 @@ function movePlayer(dx, dy) {
                 garlicPowerTime: currentLevel.player.garlicPowerTime || 0,
                 pumpkinPowerTime: currentLevel.player.pumpkinPowerTime || 0,
                 vampires: JSON.parse(JSON.stringify(currentLevel.vampires || [])),
+                vampiresAlive: (currentLevel.vampires || []).map(v => v.alive),
                 zombies: JSON.parse(JSON.stringify(currentLevel.zombies || [])),
                 witches: JSON.parse(JSON.stringify(currentLevel.witches || [])),
                 spiders: JSON.parse(JSON.stringify(currentLevel.spiders || [])),
@@ -430,34 +431,31 @@ function respawnAtCheckpoint() {
         currentLevel.bows.forEach(b => { b.chargeStartTime = null; });
     }
 
-    // 3. Réinitialiser Vampires, Zombies et Sorcières à leur état de début de niveau (évite le spawn-kill)
+    // 3. Réinitialiser Vampires, Zombies et Sorcières à leur position d'origine (évite le spawn-kill)
+    // tout en conservant les Vampires déjà éliminés avant le checkpoint
     const initialLevel = (typeof parseLevelMatrix === 'function' && window.LEVELS && window.LEVELS[currentLevelIndex])
         ? parseLevelMatrix(window.LEVELS[currentLevelIndex])
         : null;
 
     if (initialLevel) {
         currentLevel.vampires = initialLevel.vampires;
+        currentLevel.vampires.forEach((v, idx) => {
+            v.fromX = v.x;
+            v.fromY = v.y;
+            v.chasing = false;
+            v.alertTimer = 0;
+            v.stepStartTime = 0;
+
+            if (Array.isArray(snap.vampiresAlive) && snap.vampiresAlive[idx] !== undefined) {
+                v.alive = snap.vampiresAlive[idx];
+            } else if (Array.isArray(snap.vampires) && snap.vampires[idx] !== undefined) {
+                v.alive = snap.vampires[idx].alive;
+            }
+        });
+
         currentLevel.zombies = initialLevel.zombies;
         currentLevel.witches = initialLevel.witches;
-        currentLevel.bats = initialLevel.bats;
     }
-    
-    if (snap.spiders) {
-        currentLevel.spiders = JSON.parse(JSON.stringify(snap.spiders));
-        currentLevel.spiders.forEach(s => {
-            s.state = 'idle';
-            s.x = s.spawnX;
-            s.y = s.spawnY;
-            s.fromX = s.spawnX;
-            s.fromY = s.spawnY;
-            s.targetX = s.spawnX;
-            s.targetY = s.spawnY;
-            s.targetWebX = null;
-            s.targetWebY = null;
-            s.stepStartTime = 0;
-        });
-    }
-
     if (snap.trolls) {
         currentLevel.trolls = JSON.parse(JSON.stringify(snap.trolls));
         currentLevel.trolls.forEach(t => {

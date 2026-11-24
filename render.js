@@ -7,6 +7,17 @@ function render() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    const renderNow = Date.now();
+    const dyingBoss = currentLevel.trolls && currentLevel.trolls.find(t => t.alive && t.dyingEndTime > renderNow);
+    if (dyingBoss) {
+        const totalDeathMs = (dyingBoss.dyingEndTime - dyingBoss.dyingStartTime) || 1500;
+        const deathProgress = Math.min(1, Math.max(0, (renderNow - dyingBoss.dyingStartTime) / totalDeathMs));
+        const shakeAmp = 5 * (1 - deathProgress);
+        const shakeX = (Math.random() * 2 - 1) * shakeAmp;
+        const shakeY = (Math.random() * 2 - 1) * shakeAmp;
+        ctx.save();
+        ctx.translate(shakeX, shakeY);
+    }
     // --- PARAMÈTRE MODIFIABLE DE LA VUE ARÈNE BOSS ---
     const BOSS_ARENA_VIEW_SIZE = 20; // Zone affichée : 20×20 cases (colonnes 0 à 19, lignes 0 à 19)
 
@@ -663,6 +674,112 @@ function render() {
     if (currentLevel.trolls) {
         currentLevel.trolls.forEach(t => {
             if (!t.alive) return;
+            // --- ANIMATION DE MORT SPECTACULAIRE DU BOSS (1500 MS) ---
+            if (t.dyingEndTime && t.dyingEndTime > now) {
+                const totalMs = (t.dyingEndTime - t.dyingStartTime) || 1500;
+                const progress = Math.min(1, Math.max(0, (now - t.dyingStartTime) / totalMs));
+                const cx = (t.x + 1) * cellSize;
+                const cy = (t.y + 1) * cellSize;
+
+                // Tremblement horizontal de plus en plus rapide
+                const freq = 0.04 + progress * 0.14;
+                const amp = cellSize * 0.16 * (1 - progress * 0.35);
+                const vibX = Math.sin(now * freq) * amp;
+
+                // Alternance de flashs blanc lumineux / rouge ardent
+                const isWhiteFlash = Math.floor(now / 65) % 2 === 0;
+                const flashColor = isWhiteFlash ? "rgba(255, 255, 255, 0.9)" : "rgba(255, 35, 55, 0.9)";
+
+                // Explosion finale sur les derniers 40 % (progress > 0.6)
+                const isExploding = progress > 0.6;
+                const explodeProgress = isExploding ? Math.min(1, (progress - 0.6) / 0.4) : 0;
+                const bossScale = isExploding ? Math.max(0, 1 - explodeProgress) : (1 + Math.sin(progress * Math.PI) * 0.12);
+                const bossAlpha = isExploding ? Math.max(0, 1 - explodeProgress) : 1;
+
+                // 1. Halo lumineux pulsant sous le Boss
+                ctx.save();
+                const auraR = cellSize * (1.25 + (isExploding ? explodeProgress * 1.1 : Math.sin(now / 45) * 0.15));
+                const grad = ctx.createRadialGradient(cx, cy, cellSize * 0.1, cx, cy, auraR);
+                grad.addColorStop(0, flashColor);
+                grad.addColorStop(0.6, isWhiteFlash ? "rgba(255, 215, 100, 0.45)" : "rgba(220, 20, 45, 0.45)");
+                grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(cx, cy, auraR, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                // 2. Sprite du Boss qui vibre, flash, rétrécit et s'estompe
+                if (bossAlpha > 0.01 && bossScale > 0.01) {
+                    ctx.save();
+                    ctx.translate(cx + vibX, cy);
+                    ctx.scale(bossScale, bossScale);
+                    ctx.globalAlpha = bossAlpha;
+                    ctx.shadowColor = isWhiteFlash ? "#ffffff" : "#ff1e38";
+                    ctx.shadowBlur = 18 + progress * 14;
+
+                    ctx.font = `${Math.floor(cellSize * 1.65)}px sans-serif`;
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText("🧌", 0, 0);
+
+                    // Flash coloré superposé sur le Boss
+                    ctx.globalCompositeOperation = "source-atop";
+                    ctx.fillStyle = isWhiteFlash ? "rgba(255, 255, 255, 0.55)" : "rgba(255, 30, 50, 0.55)";
+                    ctx.fillRect(-cellSize, -cellSize, cellSize * 2, cellSize * 2);
+                    ctx.restore();
+                }
+
+                // 3. Explosion finale : 18 particules (poussière grise, étincelles dorées, fumée violette) + révélation de la clé 🔑
+                if (isExploding) {
+                    // Onde de choc d'explosion
+                    ctx.save();
+                    ctx.strokeStyle = `rgba(255, 215, 80, ${(1 - explodeProgress) * 0.85})`;
+                    ctx.lineWidth = Math.max(1.5, 5 * (1 - explodeProgress));
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, cellSize * (0.4 + explodeProgress * 2.1), 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+
+                    // 18 particules jaillissant depuis le centre du bloc 2×2
+                    const PARTICLE_COUNT = 18;
+                    const palette = ["#94a3b8", "#ffd166", "#a855f7", "#cbd5e1", "#ffbe0b", "#7e22ce"];
+                    ctx.save();
+                    for (let i = 0; i < PARTICLE_COUNT; i++) {
+                        const angle = (i * 2 * Math.PI) / PARTICLE_COUNT + (i % 3) * 0.18;
+                        const speedFactor = 0.75 + (i % 4) * 0.22;
+                        const dist = cellSize * (0.2 + explodeProgress * 2.2 * speedFactor);
+                        const px = cx + Math.cos(angle) * dist;
+                        const py = cy + Math.sin(angle) * dist - (explodeProgress * cellSize * 0.15);
+                        const radius = Math.max(1.5, cellSize * (0.14 - (i % 3) * 0.025) * (1 - explodeProgress * 0.75));
+
+                        ctx.globalAlpha = Math.max(0, 1 - explodeProgress * 0.9);
+                        ctx.fillStyle = palette[i % palette.length];
+                        ctx.beginPath();
+                        ctx.arc(px, py, radius, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+
+                    // Révélation progressive de la clé dorée 🔑 au centre de l'explosion
+                    const keyX = t.x * cellSize + cellSize / 2;
+                    const keyY = t.y * cellSize + cellSize / 2;
+                    const keyScale = Math.min(1, explodeProgress * 1.35);
+                    ctx.save();
+                    ctx.translate(keyX, keyY);
+                    ctx.scale(keyScale, keyScale);
+                    ctx.globalAlpha = Math.min(1, explodeProgress * 1.4);
+                    ctx.shadowColor = "#ffd166";
+                    ctx.shadowBlur = 12;
+                    ctx.font = `${Math.floor(cellSize * 0.75)}px sans-serif`;
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText("🔑", 0, 0);
+                    ctx.restore();
+                }
+
+                return;
+            }
 
             const drawX = t.isDashing ? t.fx : t.x;
             const drawY = t.isDashing ? t.fy : t.y;
@@ -1138,6 +1255,9 @@ function render() {
         ctx.strokeStyle = `rgba(255, 30, 50, ${edgeAlpha * 0.9})`;
         ctx.lineWidth = 6;
         ctx.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
+        ctx.restore();
+    }
+    if (dyingBoss) {
         ctx.restore();
     }
 }

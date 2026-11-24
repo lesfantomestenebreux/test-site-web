@@ -258,7 +258,7 @@ function spawnMiniTrollHorde(boss, customCount = MINI_TROLL_COUNT_P2) {
     for (let y = bossY - 1; y <= bossY + 2; y++) {
         for (let x = bossX - 1; x <= bossX + 2; x++) {
             if (x >= bossX && x <= bossX + 1 && y >= bossY && y <= bossY + 1) continue;
-            if (Math.abs(x - bossX) > 8 || Math.abs(y - bossY) > 8) continue;
+            if (Math.abs(x - bossX) > 7 || Math.abs(y - bossY) > 7) continue;
             if (currentLevel.map[y] && currentLevel.map[y][x] === 0) {
                 const key = `${x},${y}`;
                 if (!visited.has(key)) {
@@ -282,7 +282,7 @@ function spawnMiniTrollHorde(boss, customCount = MINI_TROLL_COUNT_P2) {
         for (const d of dirs) {
             const nx = curr.x + d.dx;
             const ny = curr.y + d.dy;
-            if (Math.abs(nx - bossX) > 8 || Math.abs(ny - bossY) > 8) continue;
+            if (Math.abs(nx - bossX) > 7 || Math.abs(ny - bossY) > 7) continue;
             if (ny < 0 || ny >= currentLevel.rows || nx < 0 || nx >= currentLevel.cols) continue;
             if (currentLevel.map[ny][nx] !== 0) continue;
 
@@ -326,9 +326,9 @@ function updateTrollsAndBows(now) {
 
     // --- CONSTANTES D'ÉQUILIBRAGE ---
     const BOW_CHARGE_MS = 1500;             // Temps de charge de l'arc
-    const ARROW_SPEED = 11;                 // Vitesse des flèches
+    const ARROW_SPEED = 13;                 // Vitesse des flèches
     const WALL_HURT_DURATION_MS = 6000;     // Durée de la blessure murale rouge
-    const WALL_SLOW_DURATION_MS = 2200;     // Durée du ralentissement après choc mural
+    const WALL_SLOW_DURATION_MS = 2000;     // Durée du ralentissement après choc mural
     const BOSS_MELEE_CHARGE_MS = 600;       // Charge attaque de base du Boss
     const BOSS_MELEE_PUSH_STEPS = 2;        // Cases de recul de l'attaque de base
     const BOSS_POWER_CHARGE_MS = 1500;      // Charge du tir puissant Phases 1 & 2
@@ -345,6 +345,7 @@ function updateTrollsAndBows(now) {
     const MINI_TROLL_STEP_MS = 750;         // Vitesse de déplacement des mini-trolls
     const MINI_TROLL_CHARGE_MS = 1000;      // Temps de charge de leur coup de massue
     const MINI_TROLL_PUSH_STEPS = 1;        // Cases de recul des cases grises
+    const BOSS_DEATH_ANIM_MS = 1000;        // Durée de l'animation de mort du Boss
 
     const dt = Math.min((now - (currentLevel._lastTrollTick || now)) / 1000, 0.05);
     currentLevel._lastTrollTick = now;
@@ -517,7 +518,8 @@ function updateTrollsAndBows(now) {
             if (tile === undefined || tile === 1) return;
 
             const hitTroll = currentLevel.trolls && currentLevel.trolls.find(t =>
-                t.alive && ar.x >= t.x - 0.3 && ar.x <= t.x + 1.3 && ar.y >= t.y - 0.3 && ar.y <= t.y + 1.3
+                t.alive && !t.dyingEndTime &&
+                ar.x >= t.x - 0.3 && ar.x <= t.x + 1.3 && ar.y >= t.y - 0.3 && ar.y <= t.y + 1.3
             );
 
             if (hitTroll) {
@@ -539,19 +541,26 @@ function updateTrollsAndBows(now) {
                         saveBossPhaseCheckpoint(hitTroll);
                     }
                 } else if (hitTroll.hp <= 0) {
-                    // Mort du Boss : libère le bloc 2x2, supprime tous les Mini-Trolls, lâche la clé 🔑
-                    hitTroll.alive = false;
+                    // Déclenche l'animation de mort de 1500 ms et neutralise toutes les attaques
+                    hitTroll.hp = 0;
+                    hitTroll.dyingStartTime = now;
+                    hitTroll.dyingEndTime = now + BOSS_DEATH_ANIM_MS;
                     hitTroll.isDashing = false;
-                    for (let oy = 0; oy < 2; oy++) {
-                        for (let ox = 0; ox < 2; ox++) {
-                            if (currentLevel.map[hitTroll.y + oy]) {
-                                currentLevel.map[hitTroll.y + oy][hitTroll.x + ox] = 0;
-                            }
-                        }
+                    hitTroll.meleeChargeEnd = 0;
+                    hitTroll.dashChargeEnd = 0;
+                    hitTroll.dashAim = null;
+                    hitTroll.chargedEnd = 0;
+                    hitTroll.chargedAim = null;
+                    hitTroll.stunEnd = 0;
+
+                    // Programme la disparition progressive des Mini-Trolls restants pendant les 1500 ms
+                    if (currentLevel.miniTrolls && currentLevel.miniTrolls.length > 0) {
+                        currentLevel.miniTrolls.forEach((mt, idx) => {
+                            const delay = Math.min(900, idx * 45);
+                            mt.chargeEnd = 0;
+                            mt.vanishAt = now + delay;
+                        });
                     }
-                    currentLevel.miniTrolls = [];
-                    currentLevel.keys.push({ x: hitTroll.x, y: hitTroll.y, collected: false });
-                    updateStatsUI();
                 }
                 return;
             }
@@ -565,6 +574,31 @@ function updateTrollsAndBows(now) {
     if (currentLevel.trolls) {
         currentLevel.trolls.forEach(t => {
             if (!t.alive) return;
+            // Gestion de l'animation de mort (1500 ms) : le Boss est inoffensif puis libère la salle et la clé
+            if (t.dyingEndTime > 0) {
+                if (currentLevel.miniTrolls && currentLevel.miniTrolls.length > 0) {
+                    currentLevel.miniTrolls = currentLevel.miniTrolls.filter(
+                        mt => !mt.vanishAt || now < mt.vanishAt
+                    );
+                }
+
+                if (now >= t.dyingEndTime) {
+                    t.dyingEndTime = 0;
+                    t.alive = false;
+                    t.isDashing = false;
+                    for (let oy = 0; oy < 2; oy++) {
+                        for (let ox = 0; ox < 2; ox++) {
+                            if (currentLevel.map[t.y + oy]) {
+                                currentLevel.map[t.y + oy][t.x + ox] = 0;
+                            }
+                        }
+                    }
+                    currentLevel.miniTrolls = [];
+                    currentLevel.keys.push({ x: t.x, y: t.y, collected: false });
+                    updateStatsUI();
+                }
+                return;
+            }
             if (t.spawnX === undefined) {
                 t.spawnX = t.x;
                 t.spawnY = t.y;
@@ -898,6 +932,7 @@ function updateTrollsAndBows(now) {
     }
 
     // --- E. IA DES MINI-TROLLS (1x1 — PHASE 2) ---
+    if (currentLevel.trolls && currentLevel.trolls.some(t => t.dyingEndTime > now)) return;
     if (currentLevel.miniTrolls && currentLevel.miniTrolls.length > 0) {
         const survivors = new Set(currentLevel.miniTrolls);
 
