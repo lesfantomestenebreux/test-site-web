@@ -263,15 +263,22 @@ if (canvas) {
 
 // --- BOUTONS INTERFACE & PLEIN ÉCRAN ---
 if (resetBtn) resetBtn.addEventListener('click', () => loadLevel(currentLevelIndex));
-if (overlayBtnReplay) {
+    if (overlayBtnReplay) {
     overlayBtnReplay.addEventListener('click', () => {
-        if (currentLevel && currentLevel.lastCheckpoint) {
+        if (!isGameOver && !hasWon) {
+            if (overlay) overlay.style.display = "none";
+            return;
+        }
+        if (currentLevel && currentLevel.bossPhaseCheckpoint) {
+            restoreBossPhaseCheckpoint();
+        } else if (currentLevel && currentLevel.lastCheckpoint) {
             respawnAtCheckpoint();
         } else {
             loadLevel(currentLevelIndex);
         }
     });
 }
+
 if (overlayBtnNext) {
     overlayBtnNext.addEventListener('click', () => {
         if (currentLevelIndex < window.LEVELS.length - 1) {
@@ -313,7 +320,197 @@ document.addEventListener('DOMContentLoaded', () => {
 
     loadProgress(); // Affiche le bouton "Continuer (Niveau X)" si une sauvegarde existe
 });
+// =========================================================================
+// CHECKPOINT AUTOMATIQUE PAR PHASE DE BOSS 🧌
+// =========================================================================
+function saveBossPhaseCheckpoint(boss) {
+    if (!currentLevel || !boss) return;
 
+    const initialData = (typeof parseLevelMatrix === 'function' && window.LEVELS && window.LEVELS[currentLevelIndex])
+        ? parseLevelMatrix(window.LEVELS[currentLevelIndex])
+        : null;
+
+    // Position sécurisée : dernier checkpoint actif > entrée de l'arène > départ du niveau
+    let safePos = { x: currentLevel.player.x, y: currentLevel.player.y };
+    if (currentLevel.lastCheckpoint) {
+        safePos = { x: currentLevel.lastCheckpoint.x, y: currentLevel.lastCheckpoint.y };
+    } else if (boss.arenaEntryPos) {
+        safePos = { x: boss.arenaEntryPos.x, y: boss.arenaEntryPos.y };
+    } else if (initialData && initialData.player) {
+        safePos = { x: initialData.player.x, y: initialData.player.y };
+    }
+
+    currentLevel.bossPhaseCheckpoint = {
+        safePos,
+        bossHp: boss.hp,
+        bossMaxHp: boss.maxHp,
+        bossSpawnX: boss.spawnX !== undefined ? boss.spawnX : boss.x,
+        bossSpawnY: boss.spawnY !== undefined ? boss.spawnY : boss.y,
+        map: JSON.parse(JSON.stringify(currentLevel.map)),
+        checkpoints: JSON.parse(JSON.stringify(currentLevel.checkpoints || [])),
+        coins: JSON.parse(JSON.stringify(currentLevel.coins || [])),
+        keys: JSON.parse(JSON.stringify(currentLevel.keys || [])),
+        garlics: JSON.parse(JSON.stringify(currentLevel.garlics || [])),
+        pumpkins: JSON.parse(JSON.stringify(currentLevel.pumpkins || [])),
+        tombstones: JSON.parse(JSON.stringify(currentLevel.tombstones || [])),
+        bows: JSON.parse(JSON.stringify(currentLevel.bows || [])),
+        spiders: JSON.parse(JSON.stringify(currentLevel.spiders || [])),
+        bats: JSON.parse(JSON.stringify(currentLevel.bats || [])),
+        skulls: JSON.parse(JSON.stringify(currentLevel.skulls || [])),
+        bones: JSON.parse(JSON.stringify(currentLevel.bones || []))
+    };
+}
+
+function restoreBossPhaseCheckpoint() {
+    if (!currentLevel || !currentLevel.bossPhaseCheckpoint) return;
+    const snap = currentLevel.bossPhaseCheckpoint;
+    const now = Date.now();
+
+    // 1. Replace le joueur à la position sécurisée et annule les malus
+    currentLevel.player.x = snap.safePos.x;
+    currentLevel.player.y = snap.safePos.y;
+    currentLevel.player.fromX = snap.safePos.x;
+    currentLevel.player.fromY = snap.safePos.y;
+    currentLevel.player.moveStartTime = now;
+    currentLevel.player.slowDebuffEndTime = 0;
+    currentLevel.player.wallHurtEndTime = 0;
+    currentLevel.player.garlicPowerTime = 0;
+    currentLevel.player.pumpkinPowerTime = 0;
+
+    // 2. Restaure la matrice et les objets (pièces, tombes, arcs, checkpoints)
+    if (snap.map) currentLevel.map = JSON.parse(JSON.stringify(snap.map));
+    if (snap.checkpoints) currentLevel.checkpoints = JSON.parse(JSON.stringify(snap.checkpoints));
+    if (snap.coins) currentLevel.coins = JSON.parse(JSON.stringify(snap.coins));
+    if (snap.keys) currentLevel.keys = JSON.parse(JSON.stringify(snap.keys));
+    if (snap.garlics) currentLevel.garlics = JSON.parse(JSON.stringify(snap.garlics));
+    if (snap.pumpkins) currentLevel.pumpkins = JSON.parse(JSON.stringify(snap.pumpkins));
+    if (snap.tombstones) currentLevel.tombstones = JSON.parse(JSON.stringify(snap.tombstones));
+    if (snap.bones) currentLevel.bones = JSON.parse(JSON.stringify(snap.bones));
+
+    if (snap.bows) {
+        currentLevel.bows = JSON.parse(JSON.stringify(snap.bows));
+        currentLevel.bows.forEach(b => { b.chargeStartTime = null; });
+    }
+
+    // 3. Réinitialise les monstres annexes (Vampires, Zombies, Sorcières) au début du niveau
+    const initialLevel = (typeof parseLevelMatrix === 'function' && window.LEVELS && window.LEVELS[currentLevelIndex])
+        ? parseLevelMatrix(window.LEVELS[currentLevelIndex])
+        : null;
+
+    if (initialLevel) {
+        currentLevel.vampires = initialLevel.vampires;
+        currentLevel.zombies = initialLevel.zombies;
+        currentLevel.witches = initialLevel.witches;
+    }
+
+    if (snap.spiders) {
+        currentLevel.spiders = JSON.parse(JSON.stringify(snap.spiders));
+        currentLevel.spiders.forEach(s => {
+            s.state = 'idle';
+            s.x = s.spawnX;
+            s.y = s.spawnY;
+            s.fromX = s.spawnX;
+            s.fromY = s.spawnY;
+            s.targetX = s.spawnX;
+            s.targetY = s.spawnY;
+            s.targetWebX = null;
+            s.targetWebY = null;
+            s.stepStartTime = 0;
+        });
+    }
+
+    if (snap.bats) {
+        currentLevel.bats = JSON.parse(JSON.stringify(snap.bats));
+        currentLevel.bats.forEach(b => {
+            b.fromX = b.x;
+            b.fromY = b.y;
+            b.stepStartTime = 0;
+        });
+    }
+
+    if (snap.skulls) {
+        currentLevel.skulls = JSON.parse(JSON.stringify(snap.skulls));
+        currentLevel.skulls.forEach(s => {
+            s.fromX = s.x;
+            s.fromY = s.y;
+            s.moveStartTime = 0;
+            s.targetBone = null;
+            s.chargeEnd = 0;
+        });
+    }
+
+    // 4. Restaure le Boss à sa position initiale avec ses PV et sa phase sauvegardés
+    for (let y = 0; y < currentLevel.rows; y++) {
+        for (let x = 0; x < currentLevel.cols; x++) {
+            if (currentLevel.map[y][x] === 3) currentLevel.map[y][x] = 0;
+        }
+    }
+
+    currentLevel.miniTrolls = [];
+    if (currentLevel.trolls && currentLevel.trolls.length > 0) {
+        const boss = currentLevel.trolls[0];
+        boss.x = snap.bossSpawnX;
+        boss.y = snap.bossSpawnY;
+        boss.spawnX = snap.bossSpawnX;
+        boss.spawnY = snap.bossSpawnY;
+        boss.hp = snap.bossHp;
+        boss.maxHp = snap.bossMaxHp;
+        boss.alive = true;
+
+        // Réoccupe le bloc 2x2 dans la matrice
+        for (let oy = 0; oy < 2; oy++) {
+            for (let ox = 0; ox < 2; ox++) {
+                if (currentLevel.map[boss.y + oy]) {
+                    currentLevel.map[boss.y + oy][boss.x + ox] = 3;
+                }
+            }
+        }
+
+        // Réinitialise les états d'attaque et applique la phase correspondante
+        boss.meleeChargeEnd = 0;
+        boss.chargedEnd = 0;
+        boss.chargedAim = null;
+        boss.dashChargeEnd = 0;
+        boss.dashAim = null;
+        boss.isDashing = false;
+        boss.stunEnd = 0;
+        boss.behindCoverSince = null;
+        boss.cooldownEnd = now + 1200;
+
+        const bossCfg = window.BOSS_CONFIG || {};
+        if (boss.hp === 2) {
+            // Phase 2 : réinvoque la horde de Mini-Trolls définie dans monsters.js
+            if (typeof window.spawnMiniTrollHorde === 'function') {
+                window.spawnMiniTrollHorde(boss, bossCfg.MINI_TROLL_COUNT_P2);
+            }
+        } else if (boss.hp === 1) {
+            // Phase 3 : réinvoque la vague d'entrée et réinitialise le cycle sur 'classic'
+            boss.phase3Step = 'classic';
+            if (typeof window.spawnMiniTrollHorde === 'function') {
+                window.spawnMiniTrollHorde(boss, bossCfg.MINI_TROLL_COUNT_P3_ENTRY);
+            }
+        }
+    }
+
+    // 5. Nettoie tous les projectiles et effets actifs
+    currentLevel.potions = [];
+    currentLevel.potionSplashes = [];
+    currentLevel.acidPuddles = [];
+    currentLevel.bombs = [];
+    currentLevel.arrows = [];
+    currentLevel.shockwaves = [];
+    currentLevel.boneProjectiles = [];
+    currentLevel.tpEffect = null;
+
+    // 6. Relance le combat et rafraîchit immédiatement la barre de vie (❤️) du Boss
+    isGameOver = false;
+    isDying = false;
+    hasWon = false;
+
+    updateStatsUI();
+    if (overlay) overlay.style.display = "none";
+    render();
+}
 function toggleFullScreen() {
     const gameContainer = document.getElementById('game-wrapper');
     const btn = document.getElementById('fullscreen-btn');

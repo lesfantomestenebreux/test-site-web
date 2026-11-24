@@ -6,34 +6,89 @@ function render() {
     if (!ctx || !currentLevel || cellSize <= 0) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // --- PARAMÈTRE MODIFIABLE DE LA VUE ARÈNE BOSS ---
+    const BOSS_ARENA_VIEW_SIZE = 20; // Zone affichée : 20×20 cases (colonnes 0 à 19, lignes 0 à 19)
+
+    // 1. Détection actuelle du Boss Troll actif et verrouillage dans son arène
+    const activeBoss = currentLevel.trolls && currentLevel.trolls.find(t => t.alive);
+    let lockBossArena = false;
+
+    if (activeBoss) {
+        const bx = activeBoss.spawnX !== undefined ? activeBoss.spawnX : activeBoss.x;
+        const by = activeBoss.spawnY !== undefined ? activeBoss.spawnY : activeBoss.y;
+        const inArena = Math.abs(currentLevel.player.x - (bx + 0.5)) <= 9 &&
+                        Math.abs(currentLevel.player.y - (by + 0.5)) <= 9 ;
+
+        if (inArena) activeBoss.cameraLocked = true;
+        if (activeBoss.cameraLocked || (currentLevel.cols <= 22 && currentLevel.rows <= 22)) {
+            lockBossArena = true;
+        }
+    }
+
     const isLarge = currentLevel.cols >= 18 || currentLevel.rows >= 18;
+    const useCamera = isLarge || lockBossArena;
 
     let minX = 0, maxX = currentLevel.cols - 1;
     let minY = 0, maxY = currentLevel.rows - 1;
 
-    if (isLarge) {
+    if (useCamera) {
         ctx.save();
 
-        const playerScreenTargetX = currentLevel.player.x * cellSize + cellSize / 2;
-        const playerScreenTargetY = currentLevel.player.y * cellSize + cellSize / 2;
-        const targetCamX = Math.min(0, Math.max(canvas.width - currentLevel.cols * cellSize, canvas.width / 2 - playerScreenTargetX));
-        const targetCamY = Math.min(0, Math.max(canvas.height - currentLevel.rows * cellSize, canvas.height / 2 - playerScreenTargetY));
+        if (typeof window.cameraScale !== 'number') window.cameraScale = 1;
 
-        const isJustTeleported = (Date.now() - (currentLevel.lastTpTime || 0)) < 600;
-        const camLerp = isJustTeleported ? 0.35 : 0.12;
+        let targetCamX = 0;
+        let targetCamY = 0;
+        let targetScale = 1;
+        let camLerp = 0.12;
 
+        if (lockBossArena && activeBoss) {
+            // Origine fixée en haut à gauche de la matrice (0, 0) sur BOSS_ARENA_VIEW_SIZE × BOSS_ARENA_VIEW_SIZE cases
+            targetCamX = 0;
+            targetCamY = 0;
+            targetScale = Math.min(
+                canvas.width / (BOSS_ARENA_VIEW_SIZE * cellSize),
+                canvas.height / (BOSS_ARENA_VIEW_SIZE * cellSize)
+            );
+            camLerp = 0.05; // Transition fluide vers la vue fixe de l'arène
+        } else {
+            // Caméra libre centrée sur le joueur
+            const playerScreenTargetX = currentLevel.player.x * cellSize + cellSize / 2;
+            const playerScreenTargetY = currentLevel.player.y * cellSize + cellSize / 2;
+            targetCamX = Math.min(0, Math.max(canvas.width - currentLevel.cols * cellSize, canvas.width / 2 - playerScreenTargetX));
+            targetCamY = Math.min(0, Math.max(canvas.height - currentLevel.rows * cellSize, canvas.height / 2 - playerScreenTargetY));
+            targetScale = 1;
+
+            const isJustTeleported = (Date.now() - (currentLevel.lastTpTime || 0)) < 600;
+            camLerp = isJustTeleported ? 0.35 : 0.12;
+        }
+
+        // Interpolation fluide de la position et du zoom
         cameraX += (targetCamX - cameraX) * camLerp;
         cameraY += (targetCamY - cameraY) * camLerp;
+        window.cameraScale += (targetScale - window.cameraScale) * camLerp;
 
+        ctx.scale(window.cameraScale, window.cameraScale);
         ctx.translate(cameraX, cameraY);
 
-        // --- OPTIMISATION CAMÉRA (Viewport Culling) ---
-        const MARGIN = 3;
+        const viewW = canvas.width / window.cameraScale;
+        const viewH = canvas.height / window.cameraScale;
+        const MARGIN = 1;
+
         minX = Math.max(0, Math.floor((-cameraX) / cellSize) - MARGIN);
-        maxX = Math.min(currentLevel.cols - 1, Math.ceil((-cameraX + canvas.width) / cellSize) + MARGIN);
+        maxX = Math.min(currentLevel.cols - 1, Math.ceil((-cameraX + viewW) / cellSize) + MARGIN);
         minY = Math.max(0, Math.floor((-cameraY) / cellSize) - MARGIN);
-        maxY = Math.min(currentLevel.rows - 1, Math.ceil((-cameraY + canvas.height) / cellSize) + MARGIN);
+        maxY = Math.min(currentLevel.rows - 1, Math.ceil((-cameraY + viewH) / cellSize) + MARGIN);
+
+        // Une fois la transition stabilisée en mode Boss, borne strictement l'affichage de 0 à BOSS_ARENA_VIEW_SIZE - 1
+        if (lockBossArena && Math.abs(window.cameraScale - targetScale) < 0.01) {
+            minX = 0;
+            minY = 0;
+            maxX = Math.min(currentLevel.cols - 1, BOSS_ARENA_VIEW_SIZE - 1);
+            maxY = Math.min(currentLevel.rows - 1, BOSS_ARENA_VIEW_SIZE - 1);
+        }
     }
+
 
     // Mémorise les bornes exactes de la caméra pour drawEmoji et drawPortal
     currentLevel.viewBounds = { minX, maxX, minY, maxY };
@@ -1055,10 +1110,9 @@ function render() {
         }
     }
 
-    if (isLarge) {
+    if (useCamera) {
         ctx.restore();
     }
-
     // --- FILTRE VIGNETTE ROUGE PULSANT ÉPAIS (BLESSURE CONTRE UN MUR — 5 SECONDES) ---
     if (currentLevel.player.wallHurtEndTime && now < currentLevel.player.wallHurtEndTime) {
         const remaining = currentLevel.player.wallHurtEndTime - now;

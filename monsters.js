@@ -231,7 +231,93 @@ function hasStrictSight(x1, y1, x2, y2, ignoreBox = null) {
 
     return true;
 }
+// =========================================================================
+// CONSTANTES D'ÉQUILIBRAGE DU BOSS TROLL 🧌 (PARTAGÉES AVEC MAIN.JS)
+// =========================================================================
+const MINI_TROLL_COUNT_P2 = 27;       // Mini-Trolls invoqués au passage en Phase 2 (hp === 2)
+const MINI_TROLL_COUNT_P3_ENTRY = 12; // Vague invoquée dès l'entrée en Phase 3 (hp === 1)
+const MINI_TROLL_COUNT_P3_CYCLE = 4;  // Renforts invoqués à chaque boucle du cycle Phase 3
 
+window.BOSS_CONFIG = {
+    MINI_TROLL_COUNT_P2,
+    MINI_TROLL_COUNT_P3_ENTRY,
+    MINI_TROLL_COUNT_P3_CYCLE
+};
+
+function spawnMiniTrollHorde(boss, customCount = MINI_TROLL_COUNT_P2) {
+    if (!currentLevel || !boss) return;
+    if (!currentLevel.miniTrolls) currentLevel.miniTrolls = [];
+
+    const now = Date.now();
+    const player = currentLevel.player;
+    const bossX = boss.x;
+    const bossY = boss.y;
+    const visited = new Set();
+    const queue = [];
+
+    for (let y = bossY - 1; y <= bossY + 2; y++) {
+        for (let x = bossX - 1; x <= bossX + 2; x++) {
+            if (x >= bossX && x <= bossX + 1 && y >= bossY && y <= bossY + 1) continue;
+            if (Math.abs(x - bossX) > 8 || Math.abs(y - bossY) > 8) continue;
+            if (currentLevel.map[y] && currentLevel.map[y][x] === 0) {
+                const key = `${x},${y}`;
+                if (!visited.has(key)) {
+                    visited.add(key);
+                    queue.push({ x, y });
+                }
+            }
+        }
+    }
+
+    const dirs = [
+        { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+        { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+    ];
+    const reachable = [];
+
+    while (queue.length > 0) {
+        const curr = queue.shift();
+        reachable.push(curr);
+
+        for (const d of dirs) {
+            const nx = curr.x + d.dx;
+            const ny = curr.y + d.dy;
+            if (Math.abs(nx - bossX) > 8 || Math.abs(ny - bossY) > 8) continue;
+            if (ny < 0 || ny >= currentLevel.rows || nx < 0 || nx >= currentLevel.cols) continue;
+            if (currentLevel.map[ny][nx] !== 0) continue;
+
+            const key = `${nx},${ny}`;
+            if (!visited.has(key)) {
+                visited.add(key);
+                queue.push({ x: nx, y: ny });
+            }
+        }
+    }
+
+    const candidates = reachable.filter(pos =>
+        Math.hypot(pos.x - player.x, pos.y - player.y) >= 2 &&
+        !currentLevel.miniTrolls.some(mt => mt.x === pos.x && mt.y === pos.y)
+    );
+
+    candidates.sort(() => Math.random() - 0.5);
+    const count = Math.min(customCount, candidates.length);
+    for (let i = 0; i < count; i++) {
+        const pos = candidates[i];
+        currentLevel.miniTrolls.push({
+            x: pos.x,
+            y: pos.y,
+            fromX: pos.x,
+            fromY: pos.y,
+            stepStartTime: 0,
+            lastMoveTime: now + Math.floor(Math.random() * 400),
+            chargeEnd: 0,
+            aimDir: { dx: 0, dy: 1 },
+            slamAnimStart: 0,
+            slamAnimEnd: 0
+        });
+    }
+}
+window.spawnMiniTrollHorde = spawnMiniTrollHorde;
 // =========================================================================
 // IA DU BOSS TROLL 🧌 (3 PHASES, RECUL STRICT, MINI-TROLLS BFS, CHARGE) & ARC 🏹
 // =========================================================================
@@ -240,23 +326,22 @@ function updateTrollsAndBows(now) {
 
     // --- CONSTANTES D'ÉQUILIBRAGE ---
     const BOW_CHARGE_MS = 1500;             // Temps de charge de l'arc
-    const ARROW_SPEED = 12;                 // Vitesse des flèches
+    const ARROW_SPEED = 11;                 // Vitesse des flèches
     const WALL_HURT_DURATION_MS = 6000;     // Durée de la blessure murale rouge
-    const WALL_SLOW_DURATION_MS = 2000;     // Durée du ralentissement après choc mural
+    const WALL_SLOW_DURATION_MS = 2200;     // Durée du ralentissement après choc mural
     const BOSS_MELEE_CHARGE_MS = 600;       // Charge attaque de base du Boss
     const BOSS_MELEE_PUSH_STEPS = 2;        // Cases de recul de l'attaque de base
     const BOSS_POWER_CHARGE_MS = 1500;      // Charge du tir puissant Phases 1 & 2
     const BOSS_POWER_LOCK_MS = 500;         // Verrouillage de la visée en fin de charge
     const BOSS_POWER_EVERY_N_ATTACKS = 4;   // Fréquence du tir puissant
-    const BOSS_COVER_TRIGGER_MS = 3000;     // Temps derrière une tombe avant tir puissant forcé
+    const BOSS_COVER_TRIGGER_MS = 2500;     // Temps derrière une tombe avant tir puissant forcé
     const BOSS_SHOCKWAVE_SPEED = 9;         // Vitesse de l'onde de choc
-    const BOSS_DASH_CHARGE_MS = 1000;       // Charge de la ruée Phase 3
-    const BOSS_DASH_LOCK_MS = 400;          // Verrouillage de la ruée
-    const BOSS_DASH_SPEED = 12;             // Vitesse de la ruée
-    const BOSS_STUN_MS = 1500;              // Étourdissement après ruée contre un mur
-    const BOSS_COOLDOWN_MS = 2200;          // Répit Phases 1 & 2
-    const BOSS_COOLDOWN_P3_MS = 1400;       // Répit Phase 3
-    const MINI_TROLL_COUNT = 10;             // Nombre de mini-trolls en Phase 2
+    const BOSS_DASH_CHARGE_MS = 875;       // Charge de la ruée Phase 3
+    const BOSS_DASH_LOCK_MS = 375;          // Verrouillage de la ruée
+    const BOSS_DASH_SPEED = 11;             // Vitesse de la ruée
+    const BOSS_STUN_MS = 1000;              // Étourdissement après ruée contre un mur
+    const BOSS_COOLDOWN_MS = 1900;          // Répit Phases 1 & 2
+    const BOSS_COOLDOWN_P3_MS = 1325;       // Répit Phase 3
     const MINI_TROLL_STEP_MS = 750;         // Vitesse de déplacement des mini-trolls
     const MINI_TROLL_CHARGE_MS = 1000;      // Temps de charge de leur coup de massue
     const MINI_TROLL_PUSH_STEPS = 1;        // Cases de recul des cases grises
@@ -315,77 +400,6 @@ function updateTrollsAndBows(now) {
             }
         }
         return false;
-    };
-
-    // Utilitaire : fait apparaître les Mini-Trolls uniquement sur les cases accessibles dans l'arène fermée 18x18 (BFS)
-    const spawnMiniTrollHorde = (boss) => {
-        const bossX = boss.x;
-        const bossY = boss.y;
-        const visited = new Set();
-        const queue = [];
-
-        // Initialise le BFS depuis toutes les cases libres (tile === 0) collées au bloc 2x2 du Boss
-        for (let y = bossY - 1; y <= bossY + 2; y++) {
-            for (let x = bossX - 1; x <= bossX + 2; x++) {
-                if (x >= bossX && x <= bossX + 1 && y >= bossY && y <= bossY + 1) continue;
-                if (Math.abs(x - bossX) > 8 || Math.abs(y - bossY) > 8) continue;
-                if (currentLevel.map[y] && currentLevel.map[y][x] === 0) {
-                    const key = `${x},${y}`;
-                    if (!visited.has(key)) {
-                        visited.add(key);
-                        queue.push({ x, y });
-                    }
-                }
-            }
-        }
-
-        const dirs = [
-            { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
-            { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
-        ];
-        const reachable = [];
-
-        while (queue.length > 0) {
-            const curr = queue.shift();
-            reachable.push(curr);
-
-            for (const d of dirs) {
-                const nx = curr.x + d.dx;
-                const ny = curr.y + d.dy;
-                if (Math.abs(nx - bossX) > 8 || Math.abs(ny - bossY) > 8) continue;
-                if (ny < 0 || ny >= currentLevel.rows || nx < 0 || nx >= currentLevel.cols) continue;
-                if (currentLevel.map[ny][nx] !== 0) continue;
-
-                const key = `${nx},${ny}`;
-                if (!visited.has(key)) {
-                    visited.add(key);
-                    queue.push({ x: nx, y: ny });
-                }
-            }
-        }
-
-        const candidates = reachable.filter(pos =>
-            Math.hypot(pos.x - player.x, pos.y - player.y) >= 2 &&
-            !currentLevel.miniTrolls.some(mt => mt.x === pos.x && mt.y === pos.y)
-        );
-
-        candidates.sort(() => Math.random() - 0.5);
-        const count = Math.min(MINI_TROLL_COUNT, candidates.length);
-        for (let i = 0; i < count; i++) {
-            const pos = candidates[i];
-            currentLevel.miniTrolls.push({
-                x: pos.x,
-                y: pos.y,
-                fromX: pos.x,
-                fromY: pos.y,
-                stepStartTime: 0,
-                lastMoveTime: now + Math.floor(Math.random() * 400),
-                chargeEnd: 0,
-                aimDir: { dx: 0, dy: 1 },
-                slamAnimStart: 0,
-                slamAnimEnd: 0
-            });
-        }
     };
 
     // Utilitaire : calcule la visée du Tir Puissant (Phases 1 & 2)
@@ -510,13 +524,20 @@ function updateTrollsAndBows(now) {
                 hitTroll.hp -= 1;
 
                 if (hitTroll.hp === 2) {
-                    // Phase 2 : apparition des Mini-Trolls dans l'arène fermée 18x18
-                    spawnMiniTrollHorde(hitTroll);
+                    // Phase 2 : apparition des Mini-Trolls + sauvegarde automatique de phase
+                    spawnMiniTrollHorde(hitTroll, MINI_TROLL_COUNT_P2);
+                    if (typeof saveBossPhaseCheckpoint === 'function') {
+                        saveBossPhaseCheckpoint(hitTroll);
+                    }
                 } else if (hitTroll.hp === 1) {
-                    // Phase 3 : arrêt du tir puissant, passage à l'alternance Classique -> Charge
+                    // Phase 3 : vague d'entrée + initialisation du cycle à 3 étapes + sauvegarde de phase
                     hitTroll.chargedEnd = 0;
                     hitTroll.chargedAim = null;
                     hitTroll.phase3Step = 'classic';
+                    spawnMiniTrollHorde(hitTroll, MINI_TROLL_COUNT_P3_ENTRY);
+                    if (typeof saveBossPhaseCheckpoint === 'function') {
+                        saveBossPhaseCheckpoint(hitTroll);
+                    }
                 } else if (hitTroll.hp <= 0) {
                     // Mort du Boss : libère le bloc 2x2, supprime tous les Mini-Trolls, lâche la clé 🔑
                     hitTroll.alive = false;
@@ -534,6 +555,7 @@ function updateTrollsAndBows(now) {
                 }
                 return;
             }
+
             keptArrows.push(ar);
         });
         currentLevel.arrows = keptArrows;
@@ -543,13 +565,16 @@ function updateTrollsAndBows(now) {
     if (currentLevel.trolls) {
         currentLevel.trolls.forEach(t => {
             if (!t.alive) return;
-
+            if (t.spawnX === undefined) {
+                t.spawnX = t.x;
+                t.spawnY = t.y;
+            }
             if (!t.arenaBox) {
                 t.arenaBox = {
                     minX: Math.max(0, t.x - 8),
-                    maxX: Math.min(currentLevel.cols - 1, t.x + 9),
+                    maxX: Math.min(currentLevel.cols - 1, t.x + 8),
                     minY: Math.max(0, t.y - 8),
-                    maxY: Math.min(currentLevel.rows - 1, t.y + 9)
+                    maxY: Math.min(currentLevel.rows - 1, t.y + 8)
                 };
             }
 
@@ -558,6 +583,10 @@ function updateTrollsAndBows(now) {
                 player.x >= t.arenaBox.minX && player.x <= t.arenaBox.maxX &&
                 player.y >= t.arenaBox.minY && player.y <= t.arenaBox.maxY
             );
+            // Enregistre la position sécurisée d'entrée du joueur dans l'arène
+            if (inArena18x18 && !t.arenaEntryPos) {
+                t.arenaEntryPos = { x: player.x, y: player.y };
+            }
 
             // Détection à travers les tombes (pour déclencher les attaques)
             const checkSight = () => {
@@ -638,7 +667,7 @@ function updateTrollsAndBows(now) {
                         t.fy = t.y;
                         t.isDashing = false;
                         t.stunEnd = now + BOSS_STUN_MS;
-                        t.phase3Step = 'classic';
+                        t.phase3Step = 'summon';
                         return;
                     }
 
@@ -797,9 +826,16 @@ function updateTrollsAndBows(now) {
 
                 if (t.phase3Step === 'classic') {
                     t.meleeChargeEnd = now + BOSS_MELEE_CHARGE_MS;
-                } else {
+                } else if (t.phase3Step === 'charge') {
                     t.dashChargeEnd = now + BOSS_DASH_CHARGE_MS;
                     t.dashAim = computeChargeDashAim(t);
+                } else if (t.phase3Step === 'summon') {
+                    spawnMiniTrollHorde(t, MINI_TROLL_COUNT_P3_CYCLE);
+                    t.slamAnimStart = now;
+                    t.slamAnimEnd = now + 350;
+                    t.slamType = 'charged';
+                    t.cooldownEnd = now + BOSS_COOLDOWN_P3_MS;
+                    t.phase3Step = 'classic';
                 }
             } else {
                 if (isBehindTombstone()) {

@@ -27,34 +27,36 @@ function movePlayer(dx, dy) {
     currentLevel.player.x = newX;
     currentLevel.player.y = newY;
 
-    // Validation du Checkpoint 🏴 -> 🏳️ + Sauvegarde complète (Objets + Monstres)
-    if (currentLevel.checkpoints) {
-        currentLevel.checkpoints.forEach(cp => {
-            if (newX === cp.x && newY === cp.y) {
-                cp.activated = true;
-                currentLevel.lastCheckpoint = {
-                    x: cp.x,
-                    y: cp.y,
-                    map: JSON.parse(JSON.stringify(currentLevel.map)),
-                    coins: JSON.parse(JSON.stringify(currentLevel.coins || [])),
-                    keys: JSON.parse(JSON.stringify(currentLevel.keys || [])),
-                    garlics: JSON.parse(JSON.stringify(currentLevel.garlics || [])),
-                    pumpkins: JSON.parse(JSON.stringify(currentLevel.pumpkins || [])),
-                    garlicPowerTime: currentLevel.player.garlicPowerTime || 0,
-                    pumpkinPowerTime: currentLevel.player.pumpkinPowerTime || 0,
-                    vampires: JSON.parse(JSON.stringify(currentLevel.vampires || [])),
-                    zombies: JSON.parse(JSON.stringify(currentLevel.zombies || [])),
-                    witches: JSON.parse(JSON.stringify(currentLevel.witches || [])),
-                    spiders: JSON.parse(JSON.stringify(currentLevel.spiders || [])),
-                    bats: JSON.parse(JSON.stringify(currentLevel.bats || [])),
-                    trolls: JSON.parse(JSON.stringify(currentLevel.trolls || [])),
-                    tombstones: JSON.parse(JSON.stringify(currentLevel.tombstones || [])),
-                    bows: JSON.parse(JSON.stringify(currentLevel.bows || [])),
-                    skulls: JSON.parse(JSON.stringify(currentLevel.skulls || [])),
-                    bones: JSON.parse(JSON.stringify(currentLevel.bones || []))
-                };
-            }
-        });
+    // Validation du Checkpoint (usage unique : sauvegarde l'état puis supprime le drapeau)
+    if (currentLevel.checkpoints && currentLevel.checkpoints.length > 0) {
+        const cpIndex = currentLevel.checkpoints.findIndex(cp => !cp.activated && newX === cp.x && newY === cp.y);
+        if (cpIndex !== -1) {
+            // Consomme et retire immédiatement le checkpoint pour que le drapeau disparaisse
+            currentLevel.checkpoints.splice(cpIndex, 1);
+
+            currentLevel.lastCheckpoint = {
+                x: newX,
+                y: newY,
+                map: JSON.parse(JSON.stringify(currentLevel.map)),
+                checkpoints: JSON.parse(JSON.stringify(currentLevel.checkpoints)),
+                coins: JSON.parse(JSON.stringify(currentLevel.coins || [])),
+                keys: JSON.parse(JSON.stringify(currentLevel.keys || [])),
+                garlics: JSON.parse(JSON.stringify(currentLevel.garlics || [])),
+                pumpkins: JSON.parse(JSON.stringify(currentLevel.pumpkins || [])),
+                garlicPowerTime: currentLevel.player.garlicPowerTime || 0,
+                pumpkinPowerTime: currentLevel.player.pumpkinPowerTime || 0,
+                vampires: JSON.parse(JSON.stringify(currentLevel.vampires || [])),
+                zombies: JSON.parse(JSON.stringify(currentLevel.zombies || [])),
+                witches: JSON.parse(JSON.stringify(currentLevel.witches || [])),
+                spiders: JSON.parse(JSON.stringify(currentLevel.spiders || [])),
+                bats: JSON.parse(JSON.stringify(currentLevel.bats || [])),
+                trolls: JSON.parse(JSON.stringify(currentLevel.trolls || [])),
+                tombstones: JSON.parse(JSON.stringify(currentLevel.tombstones || [])),
+                bows: JSON.parse(JSON.stringify(currentLevel.bows || [])),
+                skulls: JSON.parse(JSON.stringify(currentLevel.skulls || [])),
+                bones: JSON.parse(JSON.stringify(currentLevel.bones || []))
+            };
+        }
     }
 
     // 1. Alerte UNIQUEMENT l'araignée la plus proche de la toile 🕸️
@@ -243,6 +245,10 @@ function movePlayer(dx, dy) {
         const aliveTroll = currentLevel.trolls && currentLevel.trolls.some(t => t.alive);
 
         if (remainingKeys > 0 || aliveTroll) {
+            // Garde le joueur devant la porte verrouillée sans le téléporter au départ
+            currentLevel.player.x = currentLevel.player.fromX;
+            currentLevel.player.y = currentLevel.player.fromY;
+
             if (aliveTroll && remainingKeys > 0) {
                 overlayMsg.textContent = `La porte est verrouillée ! Élimine d'abord le Troll 🧌 et trouve les ${remainingKeys} clé(s) manquante(s) 🔑 !`;
             } else if (aliveTroll) {
@@ -255,6 +261,7 @@ function movePlayer(dx, dy) {
             overlayBtnReplay.textContent = "Continuer";
             overlayBtnNext.style.display = "none";
             overlay.style.display = "flex";
+            render();
             return;
         } else {
             triggerVictory();
@@ -410,6 +417,7 @@ function respawnAtCheckpoint() {
 
     // 2. Restaurer la matrice et les objets
     if (snap.map) currentLevel.map = JSON.parse(JSON.stringify(snap.map));
+    if (snap.checkpoints) currentLevel.checkpoints = JSON.parse(JSON.stringify(snap.checkpoints));
     if (snap.coins) currentLevel.coins = JSON.parse(JSON.stringify(snap.coins));
     if (snap.keys) currentLevel.keys = JSON.parse(JSON.stringify(snap.keys));
     if (snap.garlics) currentLevel.garlics = JSON.parse(JSON.stringify(snap.garlics));
@@ -422,43 +430,18 @@ function respawnAtCheckpoint() {
         currentLevel.bows.forEach(b => { b.chargeStartTime = null; });
     }
 
-    // 3. Restaurer les monstres
-    if (snap.vampires) {
-        currentLevel.vampires = JSON.parse(JSON.stringify(snap.vampires));
-        currentLevel.vampires.forEach(v => {
-            v.fromX = v.x;
-            v.fromY = v.y;
-            v.stepStartTime = 0;
-            v.chasing = false;
-            v.alertTimer = 0;
-        });
-    }
+    // 3. Réinitialiser Vampires, Zombies et Sorcières à leur état de début de niveau (évite le spawn-kill)
+    const initialLevel = (typeof parseLevelMatrix === 'function' && window.LEVELS && window.LEVELS[currentLevelIndex])
+        ? parseLevelMatrix(window.LEVELS[currentLevelIndex])
+        : null;
 
-    if (snap.zombies) {
-        currentLevel.zombies = JSON.parse(JSON.stringify(snap.zombies));
-        currentLevel.zombies.forEach(z => {
-            z.fromX = z.x;
-            z.fromY = z.y;
-            z.stepStartTime = 0;
-            z.state = 'idle';
-            z.chaseEndTime = 0;
-            z.lastCheck = now;
-        });
+    if (initialLevel) {
+        currentLevel.vampires = initialLevel.vampires;
+        currentLevel.zombies = initialLevel.zombies;
+        currentLevel.witches = initialLevel.witches;
+        currentLevel.bats = initialLevel.bats;
     }
-
-    if (snap.witches) {
-        currentLevel.witches = JSON.parse(JSON.stringify(snap.witches));
-        currentLevel.witches.forEach(w => {
-            w.fromX = w.x;
-            w.fromY = w.y;
-            w.stepStartTime = 0;
-            w.state = 'idle';
-            w.isBurst = false;
-            w.nextCastTime = now + 1000;
-            w.lastPatrolTime = now;
-        });
-    }
-
+    
     if (snap.spiders) {
         currentLevel.spiders = JSON.parse(JSON.stringify(snap.spiders));
         currentLevel.spiders.forEach(s => {
@@ -472,15 +455,6 @@ function respawnAtCheckpoint() {
             s.targetWebX = null;
             s.targetWebY = null;
             s.stepStartTime = 0;
-        });
-    }
-
-    if (snap.bats) {
-        currentLevel.bats = JSON.parse(JSON.stringify(snap.bats));
-        currentLevel.bats.forEach(b => {
-            b.fromX = b.x;
-            b.fromY = b.y;
-            b.stepStartTime = 0;
         });
     }
 
