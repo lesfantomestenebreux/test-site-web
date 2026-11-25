@@ -425,11 +425,24 @@ function respawnAtCheckpoint() {
     if (snap.pumpkins) currentLevel.pumpkins = JSON.parse(JSON.stringify(snap.pumpkins));
     if (snap.tombstones) currentLevel.tombstones = JSON.parse(JSON.stringify(snap.tombstones));
     if (snap.bones) currentLevel.bones = JSON.parse(JSON.stringify(snap.bones));
-    if (snap.spiders) currentLevel.spiders = JSON.parse(JSON.stringify(snap.spiders));
 
     if (snap.bows) {
         currentLevel.bows = JSON.parse(JSON.stringify(snap.bows));
         currentLevel.bows.forEach(b => { b.chargeStartTime = null; });
+    }
+    if (currentLevel.spiders) {
+        currentLevel.spiders.forEach(s => {
+            s.state = 'idle';
+            s.x = s.spawnX;
+            s.y = s.spawnY;
+            s.fromX = s.spawnX;
+            s.fromY = s.spawnY;
+            s.targetX = s.spawnX;
+            s.targetY = s.spawnY;
+            s.targetWebX = null;
+            s.targetWebY = null;
+            s.stepStartTime = 0;
+        });
     }
 
     // 3. Réinitialiser Vampires, Zombies et Sorcières à leur position d'origine (évite le spawn-kill)
