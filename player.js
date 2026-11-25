@@ -425,6 +425,7 @@ function respawnAtCheckpoint() {
     if (snap.pumpkins) currentLevel.pumpkins = JSON.parse(JSON.stringify(snap.pumpkins));
     if (snap.tombstones) currentLevel.tombstones = JSON.parse(JSON.stringify(snap.tombstones));
     if (snap.bones) currentLevel.bones = JSON.parse(JSON.stringify(snap.bones));
+    if (snap.spider) currentLevel.spider = JSON.parse(JSON.stringify(snap.spider));
 
     if (snap.bows) {
         currentLevel.bows = JSON.parse(JSON.stringify(snap.bows));
