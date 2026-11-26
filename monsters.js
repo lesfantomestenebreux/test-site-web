@@ -1246,9 +1246,9 @@ function updateWitches(now) {
     const player = currentLevel.player;
     const isPlayerHidden = player.pumpkinPowerTime > 0;
 
-    const WITCH_BURST_CHANCE = 0.05;
+    const WITCH_BURST_CHANCE = 0.04;
     const WITCH_STEP_DURATION = 1500; 
-    const WITCH_STEP_PAUSE = 1500; 
+    const WITCH_STEP_PAUSE = 1600; 
     const WITCH_MIN_STEP_DELAY = WITCH_STEP_DURATION + WITCH_STEP_PAUSE; 
     const WITCH_COOLDOWN_MS = 2500; 
     const WITCH_CHANNEL_MS = 750; 

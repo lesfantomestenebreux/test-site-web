@@ -462,7 +462,7 @@ function render() {
             const px = pdl.x * cellSize + cellSize / 2;
             const py = pdl.y * cellSize + cellSize / 2;
             const timeLeft = pdl.expireTime - now;
-            const lifeRatio = Math.max(0, timeLeft / 3000);
+            const lifeRatio = Math.max(0, timeLeft / 1750);
 
             if (lifeRatio <= 0) return;
 
